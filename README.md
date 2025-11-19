@@ -44,34 +44,6 @@ A demonstration project combining:
 - Docker Compose (1.29+)
 - Git
 
-## Quick Start
-
-### 1. Clone the repository
-
-```bash
-# 1. Clone and setup
-git clone <your-repo-url>
-cd PyRust_Engine
-cp .env.example .env
-
-# 2. Start services
-docker-compose up --build
-
-# 3. Test it
-curl http://localhost:5000/
-curl -X POST http://localhost:5000/calculate_price \
-  -H "Content-Type: application/json" \
-  -d '{"base_price": 100, "factor": 1.2}'
-```
-
-## Architecture
-
-```
-Client → Python API (5000) → Rust Engine (8080)
-              ↓
-          MongoDB (27017)
-```
-
 **Services:**
 - `core_api_py`: Flask API with validation & MongoDB
 - `pricing_engine_rs`: Rust microservice for calculations
@@ -97,21 +69,6 @@ Client → Python API (5000) → Rust Engine (8080)
     "final_price": 120.0
   }
 }
-```
-
-## Project Structure
-
-```
-PyRust_Engine/
-├── core_api_py/          # Python Flask API
-│   ├── app/              # Routes, models, config
-│   └── requirements.txt
-├── pricing_engine_rs/    # Rust microservice
-│   ├── src/              # main.rs, pricing_logic.rs
-│   └── Cargo.toml
-├── docker-compose.yml
-├── .env.example          # Template for environment variables
-└── README.md
 ```
 
 ## Development
