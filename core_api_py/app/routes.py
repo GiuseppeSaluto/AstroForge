@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify, current_app
 import requests
 from typing import Dict, Any
+from datetime import datetime
+from app.decorators import log_api_call, log_and_store_api_call
 
 main_bp = Blueprint('main', __name__)
 
 def validate_price_input(data: Dict[str, Any] | None) -> tuple[bool, str]:
-    """Validate pricing calculation input."""
+    #Validate pricing calculation input
     if not data:
         return False, "Request body is required"
     
@@ -34,6 +36,7 @@ def validate_price_input(data: Dict[str, Any] | None) -> tuple[bool, str]:
     return True, ""
 
 @main_bp.route('/')
+@log_api_call
 def home():
     return jsonify({
         "message": "Core API Python (Mongo Edition) is running!",
@@ -41,15 +44,16 @@ def home():
         "endpoints": [
             {"path": "/calculate_price", "method": "POST", "description": "Calculate price using Rust engine"}
         ]
-    })
+    }), 200
 
 @main_bp.route('/health')
+@log_api_call
 def health():
     return jsonify({"status": "healthy", "service": "core_api"}), 200
 
 @main_bp.route('/calculate_price', methods=['POST'])
+@log_and_store_api_call
 def get_price():
-    # Validate input
     data = request.get_json(silent=True)
     is_valid, error_msg = validate_price_input(data)
     
@@ -59,22 +63,27 @@ def get_price():
     rust_url = f"{current_app.config['RUST_SERVICE_URL']}/calculate"
     
     try:
-        # Call Rust microservice with timeout
+        # Call Rust microservice
         response = requests.post(
             rust_url, 
             json=data,
-            timeout=5  # 5 second timeout
+            timeout=5
         )
         response.raise_for_status()
         rust_result = response.json()
 
-        # TODO: Uncomment when MongoDB is fully configured
-        # db = current_app.mongo_client.pyrust_db
-        # db.logs.insert_one({
-        #     "timestamp": datetime.utcnow(),
-        #     "input": data, 
-        #     "output": rust_result
-        # })
+        # Save to MongoDB
+        try:
+            mongo_client = current_app.config.get('MONGO_CLIENT')
+            if mongo_client:
+                db = mongo_client.pyrust_db
+                db.logs.insert_one({
+                    "timestamp": datetime.utcnow(),
+                    "input": data, 
+                    "output": rust_result
+                })
+        except Exception as db_error:
+            current_app.logger.warning(f"MongoDB logging failed: {str(db_error)}")
         
         return jsonify({
             "success": True,

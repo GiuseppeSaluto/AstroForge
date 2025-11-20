@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-# from pymongo import MongoClient
+from pymongo import MongoClient
 import logging
 
 def create_app():
@@ -9,30 +9,27 @@ def create_app():
     from config import Config
     app.config.from_object(Config)
     
-    # Configure CORS
     CORS(app, resources={
         r"/*": {
-            "origins": ["*"],  # In production, specify exact origins
+            "origins": ["*"],
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type"],
             "max_age": 3600
         }
     })
     
-    # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Setup Mongo (placeholder)
-    # app.mongo_client = MongoClient(app.config['MONGO_URI'])
+    app.config['MONGO_CLIENT'] = MongoClient(app.config['MONGO_URI'])
+    app.logger.info(f"MongoDB connected to: {app.config['MONGO_URI']}")
 
-    # Register routes
+
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
-    # Security headers
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'

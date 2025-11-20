@@ -1,4 +1,4 @@
-use actix_web::{post, web, App, HttpResponse, HttpServer, Responder, middleware};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -21,6 +21,13 @@ struct ErrorResponse {
     error: String,
 }
 
+#[derive(Serialize)]
+struct HealthResponse {
+    status: String,
+    service: String,
+    version: String,
+}
+
 fn validate_price_request(req: &PriceRequest) -> Result<(), String> {
     if req.base_price < 0.0 {
         return Err("base_price must be non-negative".to_string());
@@ -39,6 +46,15 @@ fn validate_price_request(req: &PriceRequest) -> Result<(), String> {
     }
     
     Ok(())
+}
+
+#[get("/health")]
+async fn health() -> impl Responder {
+    HttpResponse::Ok().json(HealthResponse {
+        status: "healthy".to_string(),
+        service: "pricing_engine".to_string(),
+        version: "1.0.0".to_string(),
+    })
 }
 
 #[post("/calculate")]
@@ -72,6 +88,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::Logger::default())
+            .service(health)
             .service(calculate)
     })
     .bind(&bind_address)?
