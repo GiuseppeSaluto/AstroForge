@@ -12,17 +12,9 @@ MAX_BASE_PRICE = 1_000_000
 
 
 class ValidationError(Exception):
-    """Custom exception for validation failures"""
     pass
 
-
 def validate_price_input(data: Optional[Dict[str, Any]]) -> None:
-    """
-    Validate pricing calculation input.
-    
-    Raises:
-        ValidationError: If validation fails with descriptive message
-    """
     if not data:
         raise ValidationError("Request body is required")
     
@@ -77,7 +69,7 @@ def save_to_mongodb(input_data: Dict[str, Any], result_data: Dict[str, Any]) -> 
 @main_bp.route('/')
 @log_api_call
 def home():
-    """Service information endpoint"""
+    #Service information endpoint
     return jsonify({
         "message": "Core API Python (Mongo Edition) is running!",
         "version": "1.0.0",
@@ -87,11 +79,10 @@ def home():
     }), 200
 
 
-@main_bp.route('/health')
-@log_api_call
-def health():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "core_api"}), 200
+# @main_bp.route('/health')
+# @log_api_call
+# def health():
+#     return jsonify({"status": "healthy", "service": "core_api"}), 200
 
 
 @main_bp.route('/calculate_price', methods=['POST'])
