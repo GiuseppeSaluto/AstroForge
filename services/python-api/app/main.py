@@ -1,1 +1,1 @@
-# FastAPI application entry point
+# Flask application entry point

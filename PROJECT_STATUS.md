@@ -27,7 +27,7 @@
 ### 📝 To Implement (Next Steps)
 
 #### 1. Python API (services/python-api/)
-- [ ] `app/main.py` - FastAPI setup, CORS, middleware
+- [ ] `app/main.py` - Flask setup, CORS, middleware
 - [ ] `app/routes/nasa.py` - Endpoints for NASA API queries
 - [ ] `app/routes/analysis.py` - Endpoints to send data to Rust
 - [ ] `app/routes/logs.py` - Endpoints for log reading
@@ -39,7 +39,7 @@
 - [ ] `app/models/analysis_result.py` - Pydantic models
 - [ ] `app/utils/logger.py` - Logging setup
 - [ ] `app/utils/validators.py` - Custom validators
-- [ ] `requirements.txt` - Dependencies (fastapi, httpx, pydantic, etc.)
+- [ ] `requirements.txt` - Dependencies (flask, requests, marshmallow, etc.)
 - [ ] `Dockerfile` - Multi-stage build
 - [ ] `tests/` - Unit tests
 

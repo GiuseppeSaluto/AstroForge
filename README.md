@@ -7,7 +7,7 @@ Multi-service system for asteroid analysis via NASA API, Rust calculation engine
 ```
 project-root/
 ├── services/
-│   ├── python-api/         # Main Python API (FastAPI)
+│   ├── python-api/         # Main Python API (Flask)
 │   │   ├── app/
 │   │   │   ├── routes/     # NASA, Analysis, Logs
 │   │   │   ├── core/       # NASA client, Rust client, Config
