@@ -44,26 +44,16 @@
 - [ ] `tests/` - Unit tests
 
 #### 2. Rust Engine (services/rust-engine/)
-- [ ] `src/main.rs` - Actix/Axum server setup
-- [ ] `src/api/mod.rs` - API router setup
-- [ ] `src/api/analyze.rs` - POST /analyze endpoint
-- [ ] `src/api/health.rs` - GET /health endpoint
+- [ ] `src/main.rs` - Actix/Axum server setup with endpoints
 - [ ] `src/domain/asteroid.rs` - Structs and traits
 - [ ] `src/domain/orbit.rs` - Orbital parameters
 - [ ] `src/domain/risk.rs` - Risk assessment logic
-- [ ] `src/logic/orbit_math.rs` - Orbital calculations (Kepler, distance, etc.)
-- [ ] `src/logic/impact_energy.rs` - Kinetic energy, velocity
-- [ ] `src/dto/input.rs` - Request DTOs with serde
-- [ ] `src/dto/output.rs` - Response DTOs with serde
-- [ ] `src/utils/parsing.rs` - Parse utilities
+- [ ] `src/logic/` - Orbital calculations and impact energy
 - [ ] `Cargo.toml` - Dependencies (actix-web/axum, serde, etc.)
 - [ ] `Dockerfile` - Multi-stage build
 
 #### 3. Dashboard (services/dashboard/)
-- [ ] `streamlit_app/Home.py` - Main page
-- [ ] `streamlit_app/Asteroids.py` - NASA data visualization
-- [ ] `streamlit_app/Analysis.py` - Analysis results
-- [ ] `streamlit_app/Logs.py` - Log viewer
+- [ ] `streamlit_app/Main.py` - Main dashboard page with tabs/sections
 - [ ] `streamlit_app/utils/api_client.py` - HTTP client for Python API
 - [ ] `requirements.txt` - Dependencies (streamlit, requests, plotly, etc.)
 - [ ] `Dockerfile` - Streamlit setup

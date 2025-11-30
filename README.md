@@ -1,4 +1,4 @@
-# Asteroid Analysis System
+# AstroForge
 
 Multi-service system for asteroid analysis via NASA API, Rust calculation engine, and Streamlit dashboard.
 
@@ -13,27 +13,23 @@ project-root/
 │   │   │   ├── core/       # NASA client, Rust client, Config
 │   │   │   ├── models/     # Asteroid, Orbit, Analysis Result
 │   │   │   ├── utils/      # Logger, Validators
-│   │   │   └── storage/    # Log files
+│   │   │   ├── storage/    # Log files
+│   │   │   └── main.py     # Flask app
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
 │   │
 │   ├── rust-engine/        # Rust calculation engine
 │   │   ├── src/
-│   │   │   ├── api/        # Endpoints (analyze, health)
 │   │   │   ├── domain/     # Asteroid, Orbit, Risk
 │   │   │   ├── logic/      # Orbit math, Impact energy
-│   │   │   ├── utils/      # Parsing
-│   │   │   └── dto/        # Input/Output
+│   │   │   └── main.rs     # Server setup
 │   │   ├── Cargo.toml
 │   │   └── Dockerfile
 │   │
 │   └── dashboard/          # Streamlit Dashboard
 │       ├── streamlit_app/
-│       │   ├── Home.py     # Overview
-│       │   ├── Asteroids.py # NASA data
-│       │   ├── Analysis.py # Rust results
-│       │   ├── Logs.py     # Log viewer
-│       │   └── utils/
+│       │   ├── Main.py     # Main dashboard page
+│       │   └── utils/      # Helper functions
 │       ├── requirements.txt
 │       └── Dockerfile
 │
