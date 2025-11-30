@@ -1,97 +1,94 @@
-# Asteroid Analysis System
+# AstroForge — Project Status
 
-## 📋 Project Structure Checklist
+This document tracks the current state of the project, its validated architecture, and the next actionable steps for Level 1 (Foundational Version).
 
-### ✅ Completed
+---
 
-#### Directory Structure
-- [x] `services/python-api/` - Complete with app, routes, core, models, utils, storage
-- [x] `services/rust-engine/` - Complete with api, domain, logic, dto, utils
-- [x] `services/dashboard/` - Complete with streamlit_app and utils
-- [x] `infra/` - Docker compose, scripts, env files
-- [x] `docs/` - Architecture and API documentation
+## 1. Overview
 
-#### Configuration Files
-- [x] README.md updated
-- [x] .gitignore complete
-- [x] .vscode/settings.json updated
-- [x] .env.example created
-- [x] __init__.py files for all Python packages
-- [x] mod.rs files for all Rust modules
+AstroForge is a microservice-based system composed of:
 
-#### Cleanup
-- [x] Removed old `core_api_py/`
-- [x] Removed old `pricing_engine_rs/`
-- [x] Removed old `docker-compose.yml` from root
+1. A Python Flask API for ingesting NASA data, coordinating analysis, and providing endpoints for the dashboard.
+2. A Rust computation engine responsible for scientific calculations (orbital metrics, velocity estimates, impact energy, and simplified risk scoring).
+3. A Streamlit dashboard for displaying NASA data, analysis results, and system logs.
+4. A shared infrastructure layer using Docker Compose to orchestrate services.
 
-### 📝 To Implement (Next Steps)
+The goal of Level 1 is to deliver a complete and reliable core system without premature complexity.
 
-#### 1. Python API (services/python-api/)
-- [ ] `app/main.py` - Flask setup, CORS, middleware
-- [ ] `app/routes/nasa.py` - Endpoints for NASA API queries
-- [ ] `app/routes/analysis.py` - Endpoints to send data to Rust
-- [ ] `app/routes/logs.py` - Endpoints for log reading
-- [ ] `app/core/nasa_client.py` - HTTP client for NASA API
-- [ ] `app/core/rust_client.py` - HTTP client for Rust engine
-- [ ] `app/core/config.py` - Pydantic settings
-- [ ] `app/models/asteroid.py` - Pydantic models
-- [ ] `app/models/orbit.py` - Pydantic models
-- [ ] `app/models/analysis_result.py` - Pydantic models
-- [ ] `app/utils/logger.py` - Logging setup
-- [ ] `app/utils/validators.py` - Custom validators
-- [ ] `requirements.txt` - Dependencies (flask, requests, marshmallow, etc.)
-- [ ] `Dockerfile` - Multi-stage build
-- [ ] `tests/` - Unit tests
+---
 
-#### 2. Rust Engine (services/rust-engine/)
-- [ ] `src/main.rs` - Actix/Axum server setup with endpoints
-- [ ] `src/domain/asteroid.rs` - Structs and traits
-- [ ] `src/domain/orbit.rs` - Orbital parameters
-- [ ] `src/domain/risk.rs` - Risk assessment logic
-- [ ] `src/logic/` - Orbital calculations and impact energy
-- [ ] `Cargo.toml` - Dependencies (actix-web/axum, serde, etc.)
-- [ ] `Dockerfile` - Multi-stage build
+## 2. Current Architecture (after consolidation)
 
-#### 3. Dashboard (services/dashboard/)
-- [ ] `streamlit_app/Main.py` - Main dashboard page with tabs/sections
-- [ ] `streamlit_app/utils/api_client.py` - HTTP client for Python API
-- [ ] `requirements.txt` - Dependencies (streamlit, requests, plotly, etc.)
-- [ ] `Dockerfile` - Streamlit setup
+### services/python-api
+- Purpose: Orchestrate data ingestion, call NASA APIs, communicate with the Rust engine, and expose HTTP endpoints for the dashboard.
+- Structure:
+  - `routes/` (kept intentionally small: nasa.py, analysis.py, logs.py)
+  - `core/` (nasa_client.py, rust_client.py, config.py)
+  - `models/` (data representations used internally)
+  - `utils/` (logging, validation)
+  - `storage/` (local log output)
+- Status: Folder structure created. No implementation yet.
 
-#### 4. Infra
-- [ ] `infra/docker-compose.yml` - Orchestration of 3 services + volumes
-- [ ] `infra/scripts/start_dev.sh` - Dev startup script
-- [ ] `infra/scripts/rebuild.sh` - Rebuild script
-- [ ] `infra/scripts/migrate_data.sh` - Migration script (if needed)
-- [ ] `infra/env/python.env` - Python API environment variables
-- [ ] `infra/env/rust.env` - Rust engine environment variables
-- [ ] `infra/env/dashboard.env` - Dashboard environment variables
+### services/rust-engine
+- Purpose: Perform heavy mathematical computation and return results to the Python API.
+- Structure (simplified based on advice):
+  - `main.rs`
+  - `logic/` (orbit_math.rs, impact_energy.rs)
+  - `domain/` (asteroid.rs, orbit.rs, risk.rs)
+- The following folders will be added only when necessary:
+  - `api/`, `dto/`, `utils/`
+- Status: Folder structure created. Code implementation not started.
 
-#### 5. Docs
-- [ ] `docs/architecture.md` - Architecture diagrams
-- [ ] `docs/roadmap-levels.md` - Incremental development plan
-- [ ] `docs/api-spec-python.md` - Python OpenAPI spec
-- [ ] `docs/api-spec-rust.md` - Rust OpenAPI spec
-- [ ] `docs/data-flows.md` - Data flow between services
+### services/dashboard
+- Purpose: Provide a minimal and functional UI for NASA data, Rust analysis, and logs.
+- Structure (reduced for Level 1):
+  - `streamlit_app/Main.py`
+  - `streamlit_app/utils/api_client.py`
+- Additional pages will be added only after the core workflow is functional.
+- Status: Structure created. To be expanded later.
 
-### Ready for Development
+### infra/
+- Contains docker-compose configuration, helper scripts, and environment variable files.
+- Status: Placeholder structure established.
 
-The project has a solid and organized structure. All necessary files and directories are present with appropriate placeholders.
+### docs/
+- Contains architecture, roadmap, API specs, and dataflow documentation.
+- Status: Documentation skeleton in place.
 
-**Strengths:**
-- Clear separation between services
-- Modular structure for both Python and Rust
-- Docker configuration ready
-- Docs directory for documentation
-- Testing structure in place
+---
 
-**Development recommendations:**
-1. Start with Rust engine (more isolated)
-2. Then Python API with NASA integration
-3. Finally Dashboard for visualization
-4. Docker Compose at the end for orchestration
+## 3. Removed or Postponed Elements
 
-**Notes:**
-- Remember to populate `.env` by copying from `.env.example`
-- NASA API key: https://api.nasa.gov/
-- Regular testing during development
+Based on feedback, the following components were removed or postponed to avoid premature complexity:
+
+- Rust folders `api/`, `dto/`, and `utils/` (to be added when needed)
+- Streamlit multi-page structure (consolidated into a single entry point)
+- Python API extra modules not required for Level 1
+- Any “prediction” or advanced modeling logic (reserved for future levels)
+
+This ensures the project remains achievable and focused.
+
+---
+
+## 4. Next Steps (in strict order)
+
+1. Implement NASA client and basic ingestion endpoint in Python.
+2. Implement Rust computation logic for:
+   - velocity estimation  
+   - simplified orbit metrics  
+   - impact energy  
+   - risk score (heuristic)
+3. Implement Rust HTTP service with a single `/analyze` endpoint.
+4. Connect Python API to Rust engine using rust_client.
+5. Implement Main.py in Streamlit to visualize:
+   - NASA raw data  
+   - analysis results  
+   - log output
+6. Finalize Docker Compose integration.
+
+---
+
+## 5. Notes
+
+The project structure is intentionally minimal for Level 1.  
+No new folders should be added until code naturally requires them.
