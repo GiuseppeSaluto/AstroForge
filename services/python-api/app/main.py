@@ -1,6 +1,6 @@
 from flask import Flask
-from routes.nasa import nasa_bp  
-from routes.analysis import analysis_bp 
+from app.routes.nasa import nasa_bp  
+from app.routes.analysis import analysis_bp 
 
 def create_app():
     app = Flask(__name__)
