@@ -1,6 +1,6 @@
 # AstroForge — Project Status
 
-*Last updated: December 3, 2025*
+*Last updated: December 8, 2025*
 
 This document tracks the current implementation state, validated architecture, and next steps for Level 1.
 
@@ -22,18 +22,21 @@ AstroForge is a microservice system for asteroid tracking and risk analysis:
 ### ✅ Python API (`services/python-api`)
 
 **Completed:**
-- ✅ Flask application factory pattern (`main.py`)
+- ✅ Flask application factory pattern with MongoDB integration (`main.py`)
+- ✅ Environment configuration with `find_dotenv()` for flexible `.env` loading (`core/config.py`)
 - ✅ NASA NEO Feed client with configurable date ranges (`core/nasa_client.py`)
 - ✅ Rust engine HTTP client (`core/rust_client.py`)
-- ✅ Configuration management with environment variables (`core/config.py`)
 - ✅ MongoDB client with Flask integration (`core/mongodb.py`)
   - Collections: `nasa_feeds`, `asteroid_analyses`, `asteroids_raw`
-  - Indexes for date, asteroid.id, stored_at
-  - CRUD operations: save/retrieve NASA feeds and raw asteroids
+  - Indexes: date, asteroid.id, stored_at, neo_reference_id, analysis_timestamp
+  - Full CRUD operations for NASA feeds and raw asteroids
 - ✅ Logging infrastructure with file + console output (`utils/logger.py`)
   - Log path: `services/python-api/logs/python_api.log`
-- ✅ NASA route: GET `/nasa/neo/feed` with date filters (`routes/nasa.py`)
+- ✅ NASA routes (`routes/nasa.py`):
+  - GET `/nasa/neo/feed` - Fetch NASA NEO data with date filters
+  - POST `/nasa/neo/save` - Persist NASA feed to MongoDB
 - ✅ Analysis route: POST `/analysis/asteroids/feed` (`routes/analysis.py`)
+- ✅ Virtual environment setup with all dependencies installed
 
 **Structure:**
 ```
@@ -43,23 +46,25 @@ app/
 │   ├── config.py
 │   ├── nasa_client.py
 │   ├── rust_client.py
-│   └── mongodb.py
+│   └── mongodb.py (full CRUD + indexes)
 ├── routes/
-│   ├── nasa.py
+│   ├── nasa.py (feed + save endpoints)
 │   ├── analysis.py
 │   └── logs.py (placeholder)
 ├── models/
-│   └── asteroid.py (placeholder)
+│   ├── asteroid.py (placeholder)
+│   ├── orbit.py (placeholder)
+│   └── analysis_result.py (placeholder)
 └── utils/
     ├── logger.py
     └── validators.py (placeholder)
 ```
 
 **Pending:**
-- Route implementation for logs viewing
+- `/logs` route implementation
 - Model definitions (asteroid, orbit, analysis_result)
 - Data validators
-- Integration with MongoDB for storing/retrieving analysis results
+- Analysis result persistence to MongoDB
 
 ---
 
@@ -67,23 +72,26 @@ app/
 
 **Status:** Structure defined, **no implementation yet**
 
-**Planned Structure:**
+**Structure:**
 ```
 src/
-├── main.rs (HTTP server placeholder)
+├── main.rs (placeholder comment only)
 ├── domain/
 │   ├── asteroid.rs
 │   ├── orbit.rs
-│   └── risk.rs
-└── logic/
-    ├── orbit_math.rs
-    └── impact_energy.rs
+│   ├── risk.rs
+│   └── mod.rs
+├── logic/
+│   ├── orbit_math.rs
+│   ├── impact_energy.rs
+│   └── mod.rs
+└── tests.rs
 ```
 
 **Required Implementation:**
 1. HTTP server (Axum/Actix-web) with `/analysis/asteroids/feed` endpoint
 2. Domain models for asteroid, orbit, risk assessment
-3. Orbital mechanics calculations (velocity, semi-major axis, eccentricity)
+3. Orbital mechanics calculations
 4. Impact energy estimation
 5. Risk scoring heuristic
 
@@ -93,64 +101,74 @@ src/
 
 **Status:** Structure created, **no implementation yet**
 
+- ✅ Virtual environment setup with Streamlit installed
+- ❌ `Main.py` - placeholder comment only
+- ❌ `utils/api_client.py` - placeholder
+
 **Planned:**
-- Streamlit single-page app (`Main.py`)
-- API client for Python backend (`utils/api_client.py`)
+- Streamlit single-page app
+- API client for Python backend
 - Display NASA NEO feed data
-- Visualize analysis results from Rust
-- Show logs from Python API
+- Visualize Rust analysis results
+- Show system logs
 
 ---
 
-### 🔧 Infrastructure (`infra/`)
+### ✅ Development Environment
 
-**Available:**
-- Docker Compose configuration (`docker-compose.yml`)
-- Environment template files (`.env.example` for each service)
-- Startup scripts (`start_dev.sh`, `rebuild.sh`)
-
-**Task Definitions (VS Code):**
-- `cargo build (rust-engine)`
-- `cargo run (rust-engine)`
-- `Run Python API`
-- `Run Streamlit Dashboard`
-- `Start All Services`
-- `Docker Compose Up/Down`
+**Completed:**
+- ✅ Python virtual environments (python-api + dashboard)
+- ✅ Rust toolchain (rustc 1.91.1, cargo 1.91.1)
+- ✅ VS Code workspace with debug configs for all services
+- ✅ Environment file (`.env`) with NASA API key
+- ✅ Git repository configured
+- ✅ Required extensions: Python, Rust Analyzer, CodeLLDB
 
 ---
 
 ## 3. Data Flow (Current)
 
 ```
-[NASA API] → [Python: nasa_client] → [MongoDB: nasa_feeds/asteroids_raw]
-                    ↓
-[Python: analysis route] → [Rust: /analysis/asteroids/feed] → Analysis Result
-                    ↓
-[MongoDB: asteroid_analyses] ← [Python stores result]
-                    ↓
-[Dashboard] ← queries → [Python API] → [MongoDB]
+[NASA API] → [Python: nasa_client] → [MongoDB: asteroids_raw]
+                                          ↓
+                                    (18+ asteroids stored)
+                    
+[Client] → POST /nasa/neo/save → [Python] → [MongoDB: asteroids_raw]
+                                   
+[Client] → POST /analysis/asteroids/feed → [Python] → [Rust Engine]
+                                                          ↓
+                                                    (Not implemented)
 ```
+
+**Verified Working:**
+- ✅ NASA API data retrieval
+- ✅ MongoDB persistence (database: `pyrust_db`, collection: `asteroids_raw`)
+- ✅ Flask routes operational on port 5001
+- ⚠️ Rust engine integration pending
 
 ---
 
 ## 4. MongoDB Collections
 
-| Collection | Purpose | Key Indexes |
-|------------|---------|-------------|
-| `nasa_feeds` | Raw NASA NEO feed responses | `retrieved_at`, `feed_start_date`, `feed_end_date` |
-| `asteroids_raw` | Individual asteroid objects by date | `date`, `asteroid.id`, `stored_at` |
-| `asteroid_analyses` | Rust analysis results | `neo_reference_id`, `analysis_timestamp` |
+**Active Database:** `pyrust_db` (configured in `.env`)
+
+| Collection | Purpose | Documents | Indexes |
+|------------|---------|-----------|---------|
+| `asteroids_raw` | Individual asteroid objects by date | 36+ | `date`, `asteroid.id`, `stored_at` |
+| `nasa_feeds` | Raw NASA NEO feed responses | 0 | `retrieved_at`, `feed_start_date`, `feed_end_date` |
+| `asteroid_analyses` | Rust analysis results | 0 | `neo_reference_id`, `analysis_timestamp` |
 
 ---
 
 ## 5. API Endpoints
 
-### Python API (Port 5000)
+### Python API (Port 5001)
 
 | Method | Endpoint | Purpose | Status |
 |--------|----------|---------|--------|
-| GET | `/nasa/neo/feed` | Fetch NASA NEO data | ✅ Implemented |
-| POST | `/analysis/asteroids/feed` | Send data to Rust for analysis | ✅ Implemented |
+| GET | `/nasa/neo/feed` | Fetch NASA NEO data with date filters | ✅ Working |
+| POST | `/nasa/neo/save` | Save NASA feed to MongoDB | ✅ Working |
+| POST | `/analysis/asteroids/feed` | Send data to Rust for analysis | ✅ Route ready, Rust pending |
 | GET | `/logs` | Retrieve system logs | ⚠️ Placeholder |
 
 ### Rust Engine (Port 8080)
@@ -163,65 +181,84 @@ src/
 
 ## 6. Next Steps (Priority Order)
 
-### Phase 1: Complete Rust Engine
-1. Set up Axum/Actix HTTP server in `main.rs`
+### Phase 1: Complete Rust Engine (HIGH PRIORITY)
+1. Set up HTTP server (Axum recommended)
 2. Define domain structs (Asteroid, Orbit, RiskAssessment)
-3. Implement orbital calculations in `logic/orbit_math.rs`
-4. Implement impact energy in `logic/impact_energy.rs`
-5. Create `/analysis/asteroids/feed` endpoint handler
-6. Return JSON response compatible with Python API
+3. Implement orbital calculations and impact energy
+4. Create `/analysis/asteroids/feed` endpoint
+5. Test integration with Python API
 
-### Phase 2: Enhance Python API
-1. Implement `/logs` route for dashboard access
-2. Define models in `models/asteroid.py`, `models/orbit.py`
-3. Add MongoDB persistence for analysis results
-4. Implement validation utilities
+### Phase 2: Python API Enhancement
+1. Implement `/logs` route
+2. Define models and validators
+3. Add analysis result persistence
 
-### Phase 3: Build Dashboard
-1. Implement `Main.py` with Streamlit
-2. Create API client for Python backend
-3. Display NASA feed data
-4. Visualize Rust analysis results
-5. Show real-time logs
+### Phase 3: Dashboard
+1. Implement Streamlit UI
+2. Create API client
+3. Display NASA data and analysis results
 
-### Phase 4: Integration & Testing
-1. Test end-to-end data flow
-2. Verify Docker Compose setup
-3. Test all environment configurations
-4. Document deployment process
+### Phase 4: Testing
+1. End-to-end flow validation
+2. Docker deployment testing
 
 ---
 
-## 7. Deferred for Later Levels
+## 7. Configuration
 
-- Advanced prediction models
-- Machine learning integration
-- Multi-page dashboard complexity
-- Performance optimizations
-- Caching layers
-- Additional NASA API endpoints (APOD implemented but not integrated)
+**Environment Variables (`.env`):**
+- ✅ `NASA_API_KEY`: Configured and working
+- ✅ `MONGO_URI`: `mongodb://localhost:27017`
+- ✅ `MONGO_DB`: `pyrust_db`
+- ✅ `RUST_ENGINE_URL`: `http://rust-engine:8080`
+- ✅ `LOG_DIRECTORY`: `./logs`
+- ✅ `DEBUG`: `true`
 
----
+**Database:**
+- Active database: `pyrust_db`
+- Connection: Local MongoDB on port 27017
+- Collections initialized with proper indexes
 
-## 8. Configuration Notes
-
-**Environment Variables Required:**
-- `NASA_API_KEY`: NASA API access key
-- `RUST_ENGINE_URL`: Rust service endpoint (default: `http://localhost:8080`)
-- `MONGO_URI`: MongoDB connection string (default: `mongodb://localhost:27017`)
-- `MONGO_DB`: Database name (default: `astroforge_db`)
-- `LOG_DIRECTORY`: Log output path (default: `./logs`)
-
-**Log Output:**
+**Logging:**
 - File: `services/python-api/logs/python_api.log`
-- Console: stdout/stderr during Flask runtime
+- Console: Real-time during Flask runtime
+- Format: Timestamp, level, message
 
 ---
 
-## 9. Key Design Decisions
+## 8. Key Decisions & Notes
 
-- **Minimal structure**: No premature abstraction, grow organically
-- **MongoDB for persistence**: Flexible schema for NASA data and analysis results
-- **Rust for computation**: Performance-critical calculations isolated from I/O
-- **Single-page dashboard**: Start simple, expand only when needed
-- **Environment-based config**: 12-factor app principles for deployment flexibility
+**Recent Changes:**
+- Environment loading with `find_dotenv()` for flexible `.env` location
+- VS Code debug uses `envFile` for proper environment variable loading
+- Database name: `pyrust_db` | API port: 5001
+
+**Architecture:**
+- Minimal structure, grow organically
+- MongoDB for flexible schema
+- Rust for computation isolation
+- Environment-based config (12-factor)
+
+**Deferred:**
+- ML integration, advanced models, multi-page dashboard, caching, performance optimization
+
+---
+
+## 9. Current Blockers
+
+1. **Rust Engine**: Implementation required before end-to-end testing
+2. **Dashboard**: Depends on Rust completion
+
+---
+
+## 10. Validation
+
+- [x] Python API functional
+- [x] NASA data retrieval working
+- [x] MongoDB persistence operational
+- [x] Dev environment configured
+- [x] Git ready
+- [ ] Rust engine
+- [ ] End-to-end flow
+- [ ] Dashboard
+- [ ] Docker deployment
