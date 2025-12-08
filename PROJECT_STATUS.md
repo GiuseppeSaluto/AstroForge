@@ -142,7 +142,7 @@ src/
 
 **Verified Working:**
 - ✅ NASA API data retrieval
-- ✅ MongoDB persistence (database: `pyrust_db`, collection: `asteroids_raw`)
+- ✅ MongoDB persistence (database: `astroforge_db`, collection: `asteroids_raw`)
 - ✅ Flask routes operational on port 5001
 - ⚠️ Rust engine integration pending
 
@@ -150,7 +150,7 @@ src/
 
 ## 4. MongoDB Collections
 
-**Active Database:** `pyrust_db` (configured in `.env`)
+**Active Database:** `astroforge_db` (configured in `.env`)
 
 | Collection | Purpose | Documents | Indexes |
 |------------|---------|-----------|---------|
@@ -209,13 +209,13 @@ src/
 **Environment Variables (`.env`):**
 - ✅ `NASA_API_KEY`: Configured and working
 - ✅ `MONGO_URI`: `mongodb://localhost:27017`
-- ✅ `MONGO_DB`: `pyrust_db`
+- ✅ `MONGO_DB`: `astroforge_db`
 - ✅ `RUST_ENGINE_URL`: `http://rust-engine:8080`
 - ✅ `LOG_DIRECTORY`: `./logs`
 - ✅ `DEBUG`: `true`
 
 **Database:**
-- Active database: `pyrust_db`
+- Active database: `astroforge_db`
 - Connection: Local MongoDB on port 27017
 - Collections initialized with proper indexes
 
@@ -231,7 +231,7 @@ src/
 **Recent Changes:**
 - Environment loading with `find_dotenv()` for flexible `.env` location
 - VS Code debug uses `envFile` for proper environment variable loading
-- Database name: `pyrust_db` | API port: 5001
+- Database name: `astroforge_db` | API port: 5001
 
 **Architecture:**
 - Minimal structure, grow organically
