@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, serde::Serialize, serde::Deserialize)]
 pub enum DomainError {
     #[error("Invalid or empty asteroid ID")]
     InvalidId,
