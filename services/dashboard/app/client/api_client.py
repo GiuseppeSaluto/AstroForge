@@ -74,3 +74,20 @@ def get_asteroids(
         return response.json().get("near_earth_objects", [])
     except requests.RequestException:
         return []
+
+def get_analyzed_asteroids(limit: int = 200, sort: str = "risk", order: str = "desc"):
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/pipeline/analysis/asteroids",
+            params={
+                "limit": limit,
+                "sort": sort,
+                "order": order,
+            },
+            timeout=10,
+        )
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except requests.RequestException:
+        return []
