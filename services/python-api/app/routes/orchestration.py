@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from requests.exceptions import RequestException
-
+from flask import current_app
+from datetime import datetime, timezone
 from app.core.pipeline import AnalysisPipeline
 from app.utils.logger import logger
 
@@ -143,9 +144,7 @@ def pipeline_status():
 
 @orchestration_bp.route("/stats", methods=["GET"])
 def pipeline_stats():
-    from flask import current_app
-    from datetime import datetime, timezone
-
+    
     logger.info("Received request: GET /pipeline/stats")
 
     mongo = current_app.extensions.get("mongo")
@@ -188,3 +187,54 @@ def pipeline_stats():
     except Exception as e:
         logger.error(f"Failed to compute pipeline stats: {e}")
         return jsonify({"status": "error", "details": str(e)}), 500
+
+@orchestration_bp.route("/analysis/asteroids", methods=["GET"])
+def list_analyzed_asteroids():
+
+    mongo = current_app.extensions.get("mongo")
+    if not mongo:
+        return jsonify({"error": "MongoDB not initialized"}), 500
+
+    limit = request.args.get("limit", default=200, type=int)
+    sort_by = request.args.get("sort", default="risk_score", type=str)
+    order = request.args.get("order", default="desc", type=str)
+
+    try:
+        collection = mongo.db["asteroid_analyses"]
+
+        sort_field = {
+            "risk": "risk_data.risk_score_0_to_100",
+            "energy": "risk_data.impact_energy_megatons",
+            "date": "analysis_timestamp",
+        }.get(sort_by, "risk_data.risk_score_0_to_100")
+
+        sort_dir = -1 if order == "desc" else 1
+
+        cursor = (
+            collection
+            .find({}, {"_id": 0})
+            .sort(sort_field, sort_dir)
+            .limit(limit)
+        )
+
+        results = []
+        for doc in cursor:
+            risk = doc["risk_data"]
+            results.append({
+                "id": doc["neo_reference_id"],
+                "name": risk["asteroid_name"],
+                "risk_level": risk["risk_level"],
+                "risk_score": risk["risk_score_0_to_100"],
+                "energy_mt": risk["impact_energy_megatons"],
+                "distance_km": risk["miss_distance_km"],
+                "diameter_km": risk["diameter_km"],
+                "velocity_kps": risk["velocity_kps"],
+                "hazardous": risk["is_potentially_hazardous"],
+                "analyzed_at": doc["analysis_timestamp"].isoformat(),
+            })
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        logger.error(f"Failed to list analyzed asteroids: {e}")
+        return jsonify({"error": "Internal server error"}), 500
