@@ -2,7 +2,7 @@ import os
 import requests
 from typing import Dict, List, Any, Optional
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
 RUST_ENGINE_URL = os.getenv("RUST_ENGINE_URL", "http://localhost:8080")
 
 DEFAULT_TIMEOUT = 5
@@ -12,12 +12,14 @@ DEFAULT_TIMEOUT = 5
 # ---------------------------------------------------------------------
 def get_backend_health() -> Dict[str, Any]:
     try:
-        response = requests.get(f"{API_BASE_URL}/health", timeout=DEFAULT_TIMEOUT)
+        response = requests.get(
+            f"{API_BASE_URL}/pipeline/status",
+            timeout=DEFAULT_TIMEOUT,
+        )
         response.raise_for_status()
         return response.json()
     except requests.RequestException:
         return {"status": "unreachable"}
-
 
 def get_rust_health() -> Dict[str, Any]:
     try:

@@ -15,8 +15,8 @@ class HomeScreen(Screen):
         with Vertical(id="system_status"):
             yield Static("SYSTEM STATUS", classes="section-title")
             yield Static("─────────────", classes="section-title")
-            yield Static("MongoDB: ● Checking", id="mongodb_status")
-            yield Static("Rust Engine: ● Checking", id="rust_status")
+            yield Static("MongoDB: Checking...", id="mongodb_status")
+            yield Static("Rust Engine: Checking...", id="rust_status")
 
         # Pipeline Overview (placeholder)
         with Vertical(id="pipeline_overview"):
