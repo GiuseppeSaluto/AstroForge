@@ -1,3 +1,4 @@
+from readline import backend
 from textual.screen import Screen
 from textual.widgets import Static, Button
 from textual.containers import Vertical, Horizontal
@@ -49,14 +50,16 @@ class HomeScreen(Screen):
         status = get_system_status()
 
         backend = status.get("backend", {})
+        rust = status.get("rust_engine", {})
 
         backend_status = backend.get("status", "unknown")
         mongodb_status = backend.get("components", {}).get("mongodb", "unknown")
-        rust_engine_status = backend.get("components", {}).get("rust_engine", "unknown")
+
+        rust_status = rust.get("status", "unknown")
 
         backend_ok = backend_status == "healthy"
         mongodb_ok = mongodb_status == "connected"
-        rust_ok = rust_engine_status == "reachable"
+        rust_ok = rust_status == "ok"
 
         self.query_one("#status").update(
             f"Backend: {'Connected' if backend_ok else 'Unavailable'}"
@@ -69,8 +72,6 @@ class HomeScreen(Screen):
         self.query_one("#rust_status").update(
             f"Rust Engine: ● {'Reachable' if rust_ok else 'Unreachable'}"
         )
-
-        # TODO: Replace with real metrics endpoint
         self.query_one("#unprocessed").update("Unprocessed asteroids: --")
         self.query_one("#analyzed_today").update("Analyzed today: --")
         self.query_one("#high_risks").update("High / Critical risks: --")
