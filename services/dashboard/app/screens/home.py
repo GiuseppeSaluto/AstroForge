@@ -1,4 +1,3 @@
-from readline import backend
 from textual.screen import Screen
 from textual.widgets import Static, Button
 from textual.containers import Vertical, Horizontal
