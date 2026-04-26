@@ -1,6 +1,5 @@
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
-from textual.containers import Container
 from textual.widgets import Header, Footer
 
 from app.screens.home import HomeScreen
@@ -45,6 +44,13 @@ class AstroForgeDashboard(App):
     TITLE = "AstroForge"
     SUB_TITLE = "Asteroid Risk Analysis Dashboard"
 
+    SCREENS = {
+        "home": HomeScreen,
+        "asteroids": AsteroidsScreen,
+        "pipeline": PipelineScreen,
+        "logs": LogsScreen,
+    }
+
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("h", "show_home", "Home", show=True),
@@ -55,27 +61,23 @@ class AstroForgeDashboard(App):
 
     def on_mount(self) -> None:
         """Initialize the application and show home screen."""
-        self.push_screen(HomeScreen())
+        self.push_screen("home")
 
     def action_show_home(self) -> None:
         """Navigate to home screen."""
-        self.pop_screen() if len(self.screen_stack) > 1 else None
-        self.push_screen(HomeScreen())
+        self.push_screen("home")
 
     def action_show_asteroids(self) -> None:
         """Navigate to asteroids screen."""
-        self.pop_screen() if len(self.screen_stack) > 1 else None
-        self.push_screen(AsteroidsScreen())
+        self.push_screen("asteroids")
 
     def action_show_pipeline(self) -> None:
         """Navigate to pipeline control screen."""
-        self.pop_screen() if len(self.screen_stack) > 1 else None
-        self.push_screen(PipelineScreen())
+        self.push_screen("pipeline")
 
     def action_show_logs(self) -> None:
         """Navigate to logs screen."""
-        self.pop_screen() if len(self.screen_stack) > 1 else None
-        self.push_screen(LogsScreen())
+        self.push_screen("logs")
 
 
 def run():

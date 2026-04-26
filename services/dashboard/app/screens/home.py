@@ -181,9 +181,10 @@ class HomeScreen(Screen):
                             self.query_one("#last_run").update(f"Last pipeline run: {last_run}")
 
         except Exception as e:
-            self.query_one("#backend_status").update(
-                f"Backend: ✗ Error ({str(e)[:30]})"
-            )
+            backend_status = self.query_one("#backend_status", expect_none=True)
+            if backend_status:
+                backend_status.update(f"Backend: ✗ Error ({str(e)[:30]})")
+            logger.error(f"Failed to refresh system status: {str(e)}")
 
     @work(exclusive=True)
     async def run_pipeline_action(self) -> None:

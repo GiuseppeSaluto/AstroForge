@@ -1,6 +1,8 @@
+import logging
 from textual.screen import Screen
 from textual.widgets import Static, Button
 from textual.containers import Vertical, Horizontal
+from textual.css.query import NoMatches
 from textual import work
 from datetime import datetime
 
@@ -72,6 +74,13 @@ class PipelineScreen(Screen):
             id="footer",
         )
 
+    def _get_status_widget(self) -> Static | None:
+        """Safely retrieve the #run_status widget, returning None if not found."""
+        try:
+            return self.query_one("#run_status", Static)
+        except NoMatches:
+            return None
+
     def on_mount(self) -> None:
         """Initialize screen and start refreshing."""
         self.refresh_stats()
@@ -93,7 +102,7 @@ class PipelineScreen(Screen):
             worker = self.run_worker(get_pipeline_stats, thread=True)
             await worker.wait()
             stats = worker.result
-            
+
             if stats.get("status") != "error":
                 unprocessed = stats.get("unprocessed", 0)
                 analyzed_today = stats.get("analyzed_today", 0)
@@ -107,17 +116,17 @@ class PipelineScreen(Screen):
                     f"Analyzed today: [cyan]{analyzed_today}[/cyan]"
                 )
                 self.query_one("#high_risks").update(
-                    f"High/Critical risks: [yellow]{high_risks}[/yellow]" if high_risks > 0 
+                    f"High/Critical risks: [yellow]{high_risks}[/yellow]" if high_risks > 0
                     else f"High/Critical risks: [green]{high_risks}[/green]"
                 )
-                
+
                 if last_run:
                     try:
                         dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
                         self.query_one("#last_run").update(
                             f"Last run: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
                         )
-                    except:
+                    except Exception:
                         self.query_one("#last_run").update(f"Last run: {last_run}")
                 else:
                     self.query_one("#last_run").update("Last run: Never")
@@ -128,20 +137,22 @@ class PipelineScreen(Screen):
                     f"Status: [red]Error - {stats.get('error', 'Unknown')}[/red]"
                 )
         except Exception as e:
-            self.query_one("#run_status").update(
-                f"Status: [red]Error: {str(e)[:40]}[/red]"
-            )
+            status_widget = self._get_status_widget()
+            if status_widget:
+                status_widget.update(f"Status: [red]Error: {str(e)[:40]}[/red]")
+            logging.error(f"Failed to refresh pipeline stats: {str(e)}")
 
     @work(exclusive=True)
     async def run_pipeline_action(self) -> None:
         """Execute pipeline run."""
         button = self.query_one("#run_pipeline", Button)
-        status_widget = self.query_one("#run_status")
-        
+        status_widget = self._get_status_widget()
+
         original_label = button.label
         button.disabled = True
         button.label = "⟳ Running..."
-        status_widget.update("Status: [yellow]Pipeline running...[/yellow]")
+        if status_widget:
+            status_widget.update("Status: [yellow]Pipeline running...[/yellow]")
 
         try:
             worker = self.run_worker(lambda: run_pipeline(limit=100), thread=True)
@@ -153,25 +164,27 @@ class PipelineScreen(Screen):
                 processed = stats.get("processed", 0)
                 failed = stats.get("failed", 0)
                 skipped = stats.get("skipped", 0)
-                
+
                 msg = f"✓ Processed: {processed}, Failed: {failed}, Skipped: {skipped}"
                 button.label = msg[:40]
-                status_widget.update(f"Status: [green]{msg}[/green]")
-                
-                # Refresh stats after pipeline
-                refresh_worker = self.run_worker(self.refresh_stats)
-                await refresh_worker.wait()
+                if status_widget:
+                    status_widget.update(f"Status: [green]{msg}[/green]")
+
+                # Kick off stats refresh as a new background worker (non awaitable)
+                self.refresh_stats()
             else:
                 error_msg = result.get("error", "Unknown error")
                 button.label = f"✗ Failed: {error_msg[:30]}"
-                status_widget.update(f"Status: [red]Pipeline failed[/red]")
+                if status_widget:
+                    status_widget.update("Status: [red]Pipeline failed[/red]")
 
-            # Reset button after 4 seconds
             self.set_timer(4, lambda: self._reset_button(button, original_label))
 
         except Exception as e:
             button.label = f"✗ Error: {str(e)[:25]}"
-            status_widget.update(f"Status: [red]Exception: {str(e)[:35]}[/red]")
+            status_widget = self._get_status_widget()
+            if status_widget:
+                status_widget.update(f"Status: [red]Exception: {str(e)[:35]}[/red]")
             self.set_timer(4, lambda: self._reset_button(button, original_label))
 
     def _reset_button(self, button: Button, label: str) -> None:
