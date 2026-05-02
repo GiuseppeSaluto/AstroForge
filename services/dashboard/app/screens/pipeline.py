@@ -22,12 +22,12 @@ class PipelineScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: $primary;
-        background: $boost;
+        color: #8f9a4d;
+        background: #2f341e;
     }
 
     #stats_container {
-        border: solid $accent;
+        border: solid #b9982f;
         margin: 1 2;
         padding: 0 1;
     }
@@ -49,7 +49,7 @@ class PipelineScreen(Screen):
     #footer {
         dock: bottom;
         height: 1;
-        color: $text-muted;
+        color: #b4a959;
     }
     """
 

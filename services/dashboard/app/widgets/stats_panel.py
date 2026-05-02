@@ -6,7 +6,7 @@ class StatsPanel(Static):
 
     DEFAULT_CSS = """
     StatsPanel {
-        border: solid $accent;
+        border: solid #b9982f;
         padding: 0 1;
         height: auto;
     }

@@ -21,7 +21,7 @@ class StatusBadge(Static):
     
     def render(self) -> str:
         indicator = "● " if self.status else "○ "
-        color = "green" if self.status else "red"
+        color = "olive" if self.status else "red"
         return f"[{color}]{indicator}{self.label}[/{color}]"
 
 
@@ -31,33 +31,33 @@ class HomeScreen(Screen):
     CSS = """
     HomeScreen {
         layout: vertical;
-        background: $surface;
+        background: #12170f;
     }
 
     #title {
         dock: top;
         height: 3;
         content-align: center middle;
-        color: $primary;
-        background: $boost;
+        color: #8f9a4d;
+        background: #2f341e;
         text-style: bold;
     }
 
     #system_status {
         height: auto;
-        border: solid $primary;
+        border: solid #8f9a4d;
         margin: 1 2;
     }
 
     .section-title {
-        color: $primary;
+        color: #8f9a4d;
         text-style: bold;
         margin: 1 0 0 0;
     }
 
     #pipeline_stats {
         height: auto;
-        border: solid $accent;
+        border: solid #b9982f;
         margin: 1 2;
     }
 
@@ -73,7 +73,7 @@ class HomeScreen(Screen):
     #footer {
         dock: bottom;
         height: 1;
-        color: $text-muted;
+        color: #b4a959;
         text-align: center;
     }
     """

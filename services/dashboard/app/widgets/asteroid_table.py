@@ -7,7 +7,7 @@ class AsteroidTable(DataTable):
 
     DEFAULT_CSS = """
     AsteroidTable {
-        border: solid $accent;
+        border: solid #b9982f;
         margin: 1 0;
         height: 1fr;
     }
@@ -56,7 +56,7 @@ class AsteroidTable(DataTable):
             elif risk_level == "Medium":
                 risk_display = f"[yellow]{risk_level}[/yellow]"
             else:
-                risk_display = f"[green]{risk_level}[/green]"
+                risk_display = f"[olive]{risk_level}[/olive]"
 
             self.add_row(
                 asteroid.get("id", "?")[:8],

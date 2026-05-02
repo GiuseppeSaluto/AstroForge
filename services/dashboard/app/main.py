@@ -13,8 +13,8 @@ class AstroForgeDashboard(App):
 
     CSS = """
     Screen {
-        background: $surface;
-        color: $text;
+        background: #12170f;
+        color: #f1e7af;
     }
 
     Button {
@@ -22,22 +22,22 @@ class AstroForgeDashboard(App):
     }
 
     Button.primary {
-        background: $primary;
-        color: $panel;
+        background: #8f9a4d;
+        color: #1c2113;
     }
 
     DataTable {
-        border: solid $accent;
+        border: solid #b9982f;
     }
 
     DataTable > .datatable--header {
-        background: $boost;
-        color: $text;
+        background: #2f341e;
+        color: #f1e7af;
         text-style: bold;
     }
 
     RichLog {
-        border: solid $accent;
+        border: solid #b9982f;
     }
     """
 

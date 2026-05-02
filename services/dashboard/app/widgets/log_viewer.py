@@ -7,7 +7,7 @@ class LogViewer(RichLog):
 
     DEFAULT_CSS = """
     LogViewer {
-        border: solid $accent;
+        border: solid #b9982f;
         margin: 1 0;
         height: 1fr;
     }

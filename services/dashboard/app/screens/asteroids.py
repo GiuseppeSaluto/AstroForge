@@ -19,12 +19,12 @@ class AsteroidsScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: $primary;
-        background: $boost;
+        color: #8f9a4d;
+        background: #2f341e;
     }
 
     #asteroids_table {
-        border: solid $accent;
+        border: solid #b9982f;
         margin: 1 0;
     }
 
