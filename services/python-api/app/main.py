@@ -4,10 +4,13 @@ from flask import Flask
 from app.core.mongodb import MongoDBClient
 from app.core.config import DEBUG, MONGO_URI, MONGO_DB_NAME
 from app.core.nasa_client import get_neo_feed
+
+# API routes
 from app.routes.nasa import nasa_bp
 from app.routes.analysis import analysis_bp
 from app.routes.orchestration import orchestration_bp
 from app.routes.logs import logs_bp
+
 from app.utils.logger import logger
 
 
