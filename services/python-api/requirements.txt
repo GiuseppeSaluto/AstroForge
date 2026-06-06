@@ -6,6 +6,8 @@ python-dotenv==1.2.1
 pymongo==4.10.1
 cachetools==5.5.2
 
+gunicorn==23.0.0
+
 pytest==9.0.0
 pytest-mock==3.14.0
 requests-mock==1.12.1
