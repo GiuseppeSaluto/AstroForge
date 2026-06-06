@@ -1,1 +1,81 @@
-# Docker Compose orchestration
+services:
+
+  # ── MongoDB ──────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: astroforge-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - astroforge-net
+
+  # ── Rust Engine ──────────────────────────────────────────────────────────
+  rust-engine:
+    build:
+      context: ../services/rust-engine
+      dockerfile: Dockerfile
+    container_name: astroforge-rust-engine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - env/rust.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - astroforge-net
+
+  # ── Python API ───────────────────────────────────────────────────────────
+  python-api:
+    build:
+      context: ../services/python-api
+      dockerfile: Dockerfile
+    container_name: astroforge-python-api
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    env_file:
+      - env/python.env
+    environment:
+      # Override env file values to use Docker service names
+      - RUST_ENGINE_URL=http://rust-engine:8080
+      - MONGO_URI=mongodb://mongodb:27017
+      - LOG_DIRECTORY=/app/storage/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rust-engine:
+        condition: service_healthy
+    volumes:
+      - api-logs:/app/storage/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/pipeline/status"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - astroforge-net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  mongo-data:
+  api-logs:
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  astroforge-net:
+    driver: bridge

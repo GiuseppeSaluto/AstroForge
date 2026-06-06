@@ -1,3 +1,4 @@
 textual
+plotext==5.3.2
 requests==2.32.5
 python-dotenv==1.2.1

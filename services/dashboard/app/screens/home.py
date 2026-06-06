@@ -107,7 +107,7 @@ class HomeScreen(Screen):
                 yield Button("📝 Logs", id="logs")
 
         yield Static(
-            "Shortcuts: q Quit • h Home • a Asteroids • p Pipeline • l Logs",
+            "Shortcuts: q Quit • h Home • a Asteroids • c Charts • p Pipeline • l Logs",
             id="footer",
         )
 

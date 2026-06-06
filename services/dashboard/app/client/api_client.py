@@ -190,11 +190,40 @@ def get_asteroids(
         )
         response.raise_for_status()
         data = response.json()
-        
-        # Handle both direct list and wrapped response
+
         if isinstance(data, list):
             return data
         return data.get("asteroids", data.get("near_earth_objects", []))
     except requests.RequestException as e:
         logger.error(f"Failed to get asteroids: {e}")
+        return []
+
+
+def get_nasa_asteroids(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    is_hazardous: Optional[bool] = None,
+    sort_by: str = "distance",
+    order: str = "asc",
+) -> List[Dict[str, Any]]:
+    """Get normalized asteroid list from the filterable /nasa/asteroids endpoint."""
+    params: Dict[str, Any] = {"sort_by": sort_by, "order": order}
+    if start_date:
+        params["start_date"] = start_date
+    if end_date:
+        params["end_date"] = end_date
+    if is_hazardous is not None:
+        params["is_hazardous"] = str(is_hazardous).lower()
+
+    try:
+        response = _session.get(
+            f"{API_BASE_URL}/nasa/asteroids",
+            params=params,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("asteroids", [])
+    except requests.RequestException as e:
+        logger.error(f"Failed to get NASA asteroids: {e}")
         return []

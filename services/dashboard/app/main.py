@@ -4,6 +4,7 @@ from textual.widgets import Header, Footer
 
 from app.screens.home import HomeScreen
 from app.screens.asteroids import AsteroidsScreen
+from app.screens.charts import ChartsScreen
 from app.screens.pipeline import PipelineScreen
 from app.screens.logs import LogsScreen
 
@@ -47,6 +48,7 @@ class AstroForgeDashboard(App):
     SCREENS = {
         "home": HomeScreen,
         "asteroids": AsteroidsScreen,
+        "charts": ChartsScreen,
         "pipeline": PipelineScreen,
         "logs": LogsScreen,
     }
@@ -55,6 +57,7 @@ class AstroForgeDashboard(App):
         Binding("q", "quit", "Quit", show=True),
         Binding("h", "show_home", "Home", show=True),
         Binding("a", "show_asteroids", "Asteroids", show=True),
+        Binding("c", "show_charts", "Charts", show=True),
         Binding("p", "show_pipeline", "Pipeline", show=True),
         Binding("l", "show_logs", "Logs", show=True),
     ]
@@ -70,6 +73,10 @@ class AstroForgeDashboard(App):
     def action_show_asteroids(self) -> None:
         """Navigate to asteroids screen."""
         self.push_screen("asteroids")
+
+    def action_show_charts(self) -> None:
+        """Navigate to charts screen."""
+        self.push_screen("charts")
 
     def action_show_pipeline(self) -> None:
         """Navigate to pipeline control screen."""

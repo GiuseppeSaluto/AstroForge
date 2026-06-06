@@ -18,7 +18,7 @@ class MongoDBClient:
     # Flask
     def init_app(self, app):
         try:
-            self.client = MongoClient(self.uri, serverSelectionTimeoutMS=3000)
+            self.client = MongoClient(self.uri, serverSelectionTimeoutMS=3000, maxPoolSize=50, minPoolSize=5,maxIdleTimeMS=60000)
             self.db = self.client[self.db_name]
 
             logger.info(f"Connected to MongoDB at {self.uri}, using DB '{self.db_name}'")
