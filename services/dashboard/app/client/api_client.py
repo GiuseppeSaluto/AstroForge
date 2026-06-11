@@ -199,6 +199,20 @@ def get_asteroids(
         return []
 
 
+def get_asteroid_detail(asteroid_id: str) -> dict:
+    """Fetch full asteroid detail (close approaches + orbital data) from NASA via Python API."""
+    try:
+        response = _session.get(
+            f"{API_BASE_URL}/nasa/asteroids/{asteroid_id}",
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to get asteroid detail for {asteroid_id}: {e}")
+        return {}
+
+
 def get_nasa_asteroids(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
