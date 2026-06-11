@@ -175,7 +175,7 @@ class HomeScreen(Screen):
                         try:
                             dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
                             self.query_one("#last_run").update(
-                                f"Last pipeline run: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+                                f"Last pipeline run: {dt.astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
                             )
                         except:
                             self.query_one("#last_run").update(f"Last pipeline run: {last_run}")

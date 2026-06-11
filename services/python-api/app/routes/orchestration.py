@@ -159,7 +159,18 @@ def pipeline_stats():
         raw_collection = mongo.db["asteroids_raw"]
         analysis_collection = mongo.db["asteroid_analyses"]
 
-        unprocessed_count = raw_collection.count_documents({})
+        pipeline_agg = [
+            {"$lookup": {
+                "from": "asteroid_analyses",
+                "localField": "asteroid.id",
+                "foreignField": "neo_reference_id",
+                "as": "analysis",
+            }},
+            {"$match": {"analysis": {"$size": 0}}},
+            {"$count": "unprocessed"},
+        ]
+        agg_result = list(raw_collection.aggregate(pipeline_agg))
+        unprocessed_count = agg_result[0]["unprocessed"] if agg_result else 0
 
         analyzed_today = analysis_collection.count_documents({
             "analysis_timestamp": {

@@ -7,7 +7,6 @@ from app.core.nasa_client import get_neo_feed
 
 # API routes
 from app.routes.nasa import nasa_bp
-from app.routes.analysis import analysis_bp
 from app.routes.orchestration import orchestration_bp
 from app.routes.logs import logs_bp
 
@@ -72,7 +71,6 @@ def create_app():
     mongo.init_app(app)
 
     app.register_blueprint(nasa_bp)
-    app.register_blueprint(analysis_bp)
     app.register_blueprint(orchestration_bp)
     app.register_blueprint(logs_bp)
 
