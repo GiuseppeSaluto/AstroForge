@@ -104,6 +104,7 @@ class HomeScreen(Screen):
                 yield Button("▶ Run Pipeline", id="run_pipeline", variant="primary")
                 yield Button("📊 Asteroids", id="asteroids")
                 yield Button("📋 Pipeline", id="pipeline")
+                yield Button("📈 Charts", id="charts")
                 yield Button("📝 Logs", id="logs")
 
         yield Static(
@@ -124,6 +125,8 @@ class HomeScreen(Screen):
             self.app.action_show_asteroids()
         elif event.button.id == "pipeline":
             self.app.action_show_pipeline()
+        elif event.button.id == "charts":
+            self.app.action_show_charts()
         elif event.button.id == "logs":
             self.app.action_show_logs()
 

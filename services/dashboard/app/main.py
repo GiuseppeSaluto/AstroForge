@@ -22,9 +22,18 @@ class AstroForgeDashboard(App):
         margin: 0 1;
     }
 
-    Button.primary {
-        background: #8f9a4d;
-        color: #1c2113;
+    Button.-primary {
+        background: #c8952a;
+        color: #12170f;
+        text-style: bold;
+        border-top: tall #daa83a;
+        border-bottom: tall #8a6318;
+    }
+
+    Button.-primary:hover {
+        background: #daa83a;
+        border-top: tall #eab84a;
+        border-bottom: tall #9a7328;
     }
 
     DataTable {
