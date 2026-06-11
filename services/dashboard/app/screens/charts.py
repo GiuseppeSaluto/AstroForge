@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from rich.text import Text
 from textual import work
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Button, Static
 
@@ -18,22 +18,69 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 _DIAMETER_BUCKETS = [
-    ("<0.1 km",  0.0,         0.1),
-    ("0.1-0.5",  0.1,         0.5),
-    ("0.5-1 km", 0.5,         1.0),
-    ("1-5 km",   1.0,         5.0),
-    (">5 km",    5.0,         float("inf")),
+    ("<0.1 km",  0.0,  0.1),
+    ("0.1-0.5",  0.1,  0.5),
+    ("0.5-1 km", 0.5,  1.0),
+    ("1-5 km",   1.0,  5.0),
+    (">5 km",    5.0,  float("inf")),
+]
+
+_VELOCITY_BUCKETS = [
+    ("<5 km/s",   0.0,  5.0),
+    ("5-10",      5.0,  10.0),
+    ("10-15",     10.0, 15.0),
+    ("15-20",     15.0, 20.0),
+    ("20-30",     20.0, 30.0),
+    (">30 km/s",  30.0, float("inf")),
 ]
 
 
+def _stats_bar(asteroids: list) -> str:
+    total = len(asteroids)
+    hazardous = sum(1 for a in asteroids if a.get("is_potentially_hazardous"))
+    haz_pct = round(hazardous / total * 100) if total else 0
+
+    closest = min(asteroids, key=lambda a: a.get("miss_distance_km", float("inf")))
+    closest_km = closest.get("miss_distance_km", 0)
+    closest_name = (closest.get("name") or "?").strip("()")
+
+    fastest = max(asteroids, key=lambda a: a.get("velocity_kps", 0))
+    fastest_kps = fastest.get("velocity_kps", 0)
+
+    avg_diam = sum(a.get("diameter_km_avg", 0) for a in asteroids) / total
+
+    return (
+        f"[cyan]Total:[/cyan] {total}  "
+        f"[red]Hazardous:[/red] {hazardous} ({haz_pct}%)  "
+        f"[yellow]Closest:[/yellow] {closest_name} @ {closest_km:,.0f} km  "
+        f"[magenta]Fastest:[/magenta] {fastest_kps:.1f} km/s  "
+        f"[green]Avg ⌀:[/green] {avg_diam:.3f} km"
+    )
+
+
+def _y_ticks(values: list[float], n_ticks: int = 5) -> tuple[list, list[str]]:
+    """Generate at most n_ticks evenly spaced y-axis ticks with clean labels."""
+    y_max = max(values) if values else 1.0
+    if y_max == 0:
+        y_max = 1.0
+    step = y_max / n_ticks
+    ticks = [round(step * i, 3) for i in range(n_ticks + 1)]
+    return ticks, [f"{v:.2f}".rstrip("0").rstrip(".") for v in ticks]
+
+
+def _count_ticks(max_count: int, n_ticks: int = 5) -> tuple[list, list[str]]:
+    """Integer y-axis ticks for count-based charts."""
+    step = max(1, max_count // n_ticks)
+    ticks = list(range(0, max_count + step + 1, step))
+    return ticks, [str(v) for v in ticks]
+
+
 def _distance_chart(asteroids: list, width: int, height: int) -> Text:
-    """Scatter plot: miss distance (million km) per asteroid, grouped by date."""
     sorted_asts = sorted(asteroids, key=lambda a: a.get("close_approach_date", ""))
 
     _plt.clear_figure()
     _plt.plotsize(width, height)
-    _plt.title("Miss Distance over Time")
-    _plt.ylabel("Distance (million km)")
+    _plt.title("Miss Distance over Time (Mkm = million km)")
     _plt.theme("dark")
 
     if not sorted_asts:
@@ -41,27 +88,29 @@ def _distance_chart(asteroids: list, width: int, height: int) -> Text:
         return Text.from_ansi(_plt.build())
 
     x_all = list(range(len(sorted_asts)))
-    safe_x  = [i for i, a in enumerate(sorted_asts) if not a.get("is_potentially_hazardous")]
-    safe_y  = [sorted_asts[i]["miss_distance_km"] / 1_000_000 for i in safe_x]
-    haz_x   = [i for i, a in enumerate(sorted_asts) if a.get("is_potentially_hazardous")]
-    haz_y   = [sorted_asts[i]["miss_distance_km"] / 1_000_000 for i in haz_x]
+    safe_x = [i for i, a in enumerate(sorted_asts) if not a.get("is_potentially_hazardous")]
+    safe_y = [sorted_asts[i]["miss_distance_km"] / 1_000_000 for i in safe_x]
+    haz_x  = [i for i, a in enumerate(sorted_asts) if a.get("is_potentially_hazardous")]
+    haz_y  = [sorted_asts[i]["miss_distance_km"] / 1_000_000 for i in haz_x]
 
     if safe_x:
         _plt.scatter(safe_x, safe_y, label="Safe", marker="dot", color="green")
     if haz_x:
         _plt.scatter(haz_x, haz_y, label="Hazardous", marker="dot", color="red")
 
-    # x-axis: show at most 7 date labels to avoid crowding
     step = max(1, len(x_all) // 7)
-    ticks  = x_all[::step]
-    labels = [sorted_asts[i]["close_approach_date"][-5:] for i in ticks]
-    _plt.xticks(ticks, labels)
+    _plt.xticks(x_all[::step], [sorted_asts[i]["close_approach_date"][-5:] for i in x_all[::step]])
+
+    all_y = safe_y + haz_y
+    if all_y:
+        ticks, labels = _y_ticks(all_y)
+        labels = [f"{t:.1f}M" for t in ticks]
+        _plt.yticks(ticks, labels)
 
     return Text.from_ansi(_plt.build())
 
 
 def _diameter_chart(asteroids: list, width: int, height: int) -> Text:
-    """Bar chart: asteroid count per diameter bucket."""
     labels = [b[0] for b in _DIAMETER_BUCKETS]
     counts = [0] * len(_DIAMETER_BUCKETS)
 
@@ -74,17 +123,42 @@ def _diameter_chart(asteroids: list, width: int, height: int) -> Text:
 
     _plt.clear_figure()
     _plt.plotsize(width, height)
-    _plt.title("Size Distribution (avg diameter)")
-    _plt.ylabel("Count")
-    _plt.xlabel("Diameter range (km)")
+    _plt.title("Size Distribution")
     _plt.theme("dark")
     _plt.bar(labels, counts, color="olive")
+
+    y_max = max(counts) if max(counts) > 0 else 1
+    ticks, tick_labels = _count_ticks(y_max)
+    _plt.yticks(ticks, tick_labels)
+
+    return Text.from_ansi(_plt.build())
+
+
+def _velocity_chart(asteroids: list, width: int, height: int) -> Text:
+    labels = [b[0] for b in _VELOCITY_BUCKETS]
+    counts = [0] * len(_VELOCITY_BUCKETS)
+
+    for a in asteroids:
+        v = a.get("velocity_kps", 0.0)
+        for i, (_, lo, hi) in enumerate(_VELOCITY_BUCKETS):
+            if lo <= v < hi:
+                counts[i] += 1
+                break
+
+    _plt.clear_figure()
+    _plt.plotsize(width, height)
+    _plt.title("Velocity Distribution")
+    _plt.theme("dark")
+    _plt.bar(labels, counts, color="cyan")
+
+    y_max = max(counts) if max(counts) > 0 else 1
+    ticks, tick_labels = _count_ticks(y_max)
+    _plt.yticks(ticks, tick_labels)
 
     return Text.from_ansi(_plt.build())
 
 
 class ChartsScreen(Screen):
-    """Visualization screen — distance/time scatter and size distribution bar chart."""
 
     CSS = """
     ChartsScreen {
@@ -114,16 +188,34 @@ class ChartsScreen(Screen):
         margin: 0 1;
     }
 
+    #stats_bar {
+        height: 1;
+        margin: 0 3;
+        color: #f1e7af;
+        content-align: left middle;
+    }
+
     #chart_distance {
         border: solid #8f9a4d;
         margin: 1 2 0 2;
         height: 1fr;
     }
 
+    #bottom_charts {
+        height: 1fr;
+        margin: 0 2 0 2;
+    }
+
     #chart_diameter {
         border: solid #b9982f;
-        margin: 1 2 0 2;
-        height: 1fr;
+        margin: 1 1 0 0;
+        width: 1fr;
+    }
+
+    #chart_velocity {
+        border: solid #8f9a4d;
+        margin: 1 0 0 1;
+        width: 1fr;
     }
 
     #status {
@@ -155,10 +247,14 @@ class ChartsScreen(Screen):
             yield Button("🔄 Refresh", id="refresh", variant="primary")
             yield Button("⬅ Back", id="back")
 
+        yield Static("Loading stats…", id="stats_bar")
         yield Static("Loading…", id="chart_distance")
-        yield Static("Loading…", id="chart_diameter")
-        yield Static("", id="status")
 
+        with Horizontal(id="bottom_charts"):
+            yield Static("Loading…", id="chart_diameter")
+            yield Static("Loading…", id="chart_velocity")
+
+        yield Static("", id="status")
         yield Static(
             "h Home • a Asteroids • c Charts • p Pipeline • l Logs • q Quit",
             id="footer",
@@ -185,9 +281,7 @@ class ChartsScreen(Screen):
             self.app.action_show_home()
 
     def _update_range_label(self) -> None:
-        self.query_one("#date_range").update(
-            f"Range: {self._start} → {self._end}"
-        )
+        self.query_one("#date_range").update(f"Range: {self._start} → {self._end}")
 
     @work(exclusive=True)
     async def load_charts(self) -> None:
@@ -198,8 +292,10 @@ class ChartsScreen(Screen):
             return
 
         self.query_one("#status").update("[yellow]Loading…[/yellow]")
+        self.query_one("#stats_bar").update("Fetching data…")
         self.query_one("#chart_distance").update("Fetching data from API…")
         self.query_one("#chart_diameter").update("")
+        self.query_one("#chart_velocity").update("")
 
         start_str = self._start.strftime("%Y-%m-%d")
         end_str   = self._end.strftime("%Y-%m-%d")
@@ -213,20 +309,22 @@ class ChartsScreen(Screen):
             asteroids: list = worker.result
 
             if not asteroids:
+                self.query_one("#stats_bar").update("[yellow]No data[/yellow]")
                 self.query_one("#chart_distance").update("No asteroids found for this range.")
                 self.query_one("#chart_diameter").update("")
+                self.query_one("#chart_velocity").update("")
                 self.query_one("#status").update("[yellow]No data returned[/yellow]")
                 return
 
-            # Terminal dimensions minus borders/padding
-            w = max(40, self.app.size.width - 8)
-            h = max(8,  (self.app.size.height - 14) // 2)
+            w_full = max(40, self.app.size.width - 8)
+            w_half = max(20, (self.app.size.width - 12) // 2)
+            h_top  = max(8,  (self.app.size.height - 18) // 2)
+            h_bot  = max(6,  (self.app.size.height - 18) // 2)
 
-            dist = _distance_chart(asteroids, w, h)
-            diam = _diameter_chart(asteroids, w, h)
-
-            self.query_one("#chart_distance").update(dist)
-            self.query_one("#chart_diameter").update(diam)
+            self.query_one("#stats_bar").update(_stats_bar(asteroids))
+            self.query_one("#chart_distance").update(_distance_chart(asteroids, w_full, h_top))
+            self.query_one("#chart_diameter").update(_diameter_chart(asteroids, w_half, h_bot))
+            self.query_one("#chart_velocity").update(_velocity_chart(asteroids, w_half, h_bot))
             self.query_one("#status").update(
                 f"[green]{len(asteroids)} asteroids — {start_str} → {end_str}[/green]"
             )
