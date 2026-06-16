@@ -7,20 +7,16 @@ from textual.worker import WorkerCancelled
 from textual import work
 
 from app.client.api_client import get_asteroid_detail
+from app import theme
 
 logger = logging.getLogger(__name__)
 
-_RISK_COLOR = {
-    "Critical": "red",
-    "High":     "red",
-    "Medium":   "yellow",
-    "Low":      "green",
-}
+_RISK_COLOR = theme.RISK_COLOR
 
 
 class AsteroidDetailScreen(ModalScreen):
 
-    CSS = """
+    CSS = theme.apply("""
     AsteroidDetailScreen {
         align: center middle;
     }
@@ -28,22 +24,22 @@ class AsteroidDetailScreen(ModalScreen):
     #dialog {
         width: 82%;
         max-height: 90%;
-        background: #1a2012;
-        border: double #8f9a4d;
+        background: $surface;
+        border: double $border;
         padding: 0 2 1 2;
     }
 
     #header {
         height: 3;
         content-align: center middle;
-        background: #2f341e;
-        color: #f1e7af;
+        background: $bg;
+        color: $text;
         text-style: bold;
         margin: 0 -2 1 -2;
     }
 
     .section-title {
-        color: #8f9a4d;
+        color: $accent;
         text-style: bold;
         margin: 1 0 0 0;
         height: 1;
@@ -60,29 +56,29 @@ class AsteroidDetailScreen(ModalScreen):
 
     .data-line {
         height: 1;
-        color: #f1e7af;
+        color: $text;
     }
 
     #approaches_table {
         max-height: 10;
-        border: solid #b9982f;
+        border: solid $border_dim;
         margin: 0 0 0 0;
     }
 
     #nasa_status {
         height: 1;
-        color: #b4a959;
+        color: $muted;
         margin: 0 0 0 0;
     }
 
     #orbital_info {
         height: 1;
-        color: #f1e7af;
+        color: $text;
     }
 
     #jpl_link {
         height: 1;
-        color: #b9982f;
+        color: $muted;
         margin-top: 0;
     }
 
@@ -97,7 +93,7 @@ class AsteroidDetailScreen(ModalScreen):
         align-horizontal: center;
         margin-top: 1;
     }
-    """
+    """)
 
     BINDINGS = [("escape", "dismiss", "Close")]
 
@@ -143,7 +139,7 @@ class AsteroidDetailScreen(ModalScreen):
                 approaches_table = DataTable(id="approaches_table")
                 approaches_table.add_columns("Date", "Distance (km)", "Velocity (km/s)", "Body")
                 yield approaches_table
-                yield Static("[yellow]Fetching NASA data…[/yellow]", id="nasa_status")
+                yield Static(f"[{theme.MEDIUM}]Fetching NASA data…[/{theme.MEDIUM}]", id="nasa_status")
 
                 yield Static("── ORBITAL DATA ──", classes="section-title")
                 yield Static("Loading…", id="orbital_info", classes="data-line")
@@ -182,7 +178,7 @@ class AsteroidDetailScreen(ModalScreen):
             data: dict = worker.result
 
             if not data:
-                self._safe_update("#nasa_status", "[red]NASA data unavailable[/red]")
+                self._safe_update("#nasa_status", f"[{theme.CRITICAL}]NASA data unavailable[/{theme.CRITICAL}]")
                 self._safe_update("#diameter_range", "")
                 return
 
@@ -212,7 +208,7 @@ class AsteroidDetailScreen(ModalScreen):
 
             self._safe_update(
                 "#nasa_status",
-                f"[green]{len(approaches)} total approaches — showing {len(recent)} most recent[/green]",
+                f"[{theme.LOW}]{len(approaches)} total approaches — showing {len(recent)} most recent[/{theme.LOW}]",
             )
 
             # Orbital data
@@ -229,7 +225,7 @@ class AsteroidDetailScreen(ModalScreen):
                     parts.append(f"Incl: {float(orb['inclination']):.2f}°")
                 self._safe_update("#orbital_info", "  |  ".join(parts))
             else:
-                self._safe_update("#orbital_info", "[dim]Orbital data not available[/dim]")
+                self._safe_update("#orbital_info", f"[{theme.MUTED}]Orbital data not available[/{theme.MUTED}]")
 
             jpl = data.get("nasa_jpl_url", "")
             if jpl:
@@ -239,4 +235,4 @@ class AsteroidDetailScreen(ModalScreen):
             pass  # Modal dismissed before NASA data arrived — no action needed
         except Exception as e:
             logger.error(f"Detail load failed for {asteroid_id}: {e}", exc_info=True)
-            self._safe_update("#nasa_status", f"[red]Error: {str(e)[:60]}[/red]")
+            self._safe_update("#nasa_status", f"[{theme.CRITICAL}]Error: {str(e)[:60]}[/{theme.CRITICAL}]")

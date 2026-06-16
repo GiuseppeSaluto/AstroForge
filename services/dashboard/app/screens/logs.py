@@ -4,12 +4,13 @@ from textual.containers import Vertical, Horizontal
 from textual import work
 
 from app.client.api_client import get_logs
+from app import theme
 
 
 class LogsScreen(Screen):
     """Display recent logs from Python API."""
 
-    CSS = """
+    CSS = theme.apply("""
     LogsScreen {
         layout: vertical;
     }
@@ -19,12 +20,12 @@ class LogsScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: #8f9a4d;
-        background: #2f341e;
+        color: $accent;
+        background: $surface;
     }
 
     #logs_container {
-        border: solid #b9982f;
+        border: solid $border_dim;
         margin: 1 0;
     }
 
@@ -37,7 +38,7 @@ class LogsScreen(Screen):
     #controls Button {
         margin: 0 1;
     }
-    """
+    """)
 
     def compose(self):
         """Compose logs screen layout."""
@@ -88,15 +89,7 @@ class LogsScreen(Screen):
                 message = log_entry.get("message", "")
                 timestamp = log_entry.get("timestamp", "")
 
-                # Color code by log level
-                if level == "ERROR":
-                    color = "red"
-                elif level == "WARNING":
-                    color = "yellow"
-                elif level == "DEBUG":
-                    color = "blue"
-                else:
-                    color = "green"
+                color = theme.LOG_COLOR.get(level, theme.TEXT)
 
                 # Format: [timestamp] LEVEL: message
                 log_line = f"[{color}][{timestamp}] {level}:[/{color}] {message}"
@@ -104,5 +97,5 @@ class LogsScreen(Screen):
 
         except Exception as e:
             self.log_display.write(
-                f"[red]Failed to load logs: {str(e)[:80]}[/red]"
+                f"[{theme.CRITICAL}]Failed to load logs: {str(e)[:80]}[/{theme.CRITICAL}]"
             )

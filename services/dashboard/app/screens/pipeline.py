@@ -7,12 +7,13 @@ from textual import work
 from datetime import datetime
 
 from app.client.api_client import run_pipeline, get_pipeline_stats
+from app import theme
 
 
 class PipelineScreen(Screen):
     """Pipeline control and monitoring screen."""
 
-    CSS = """
+    CSS = theme.apply("""
     PipelineScreen {
         layout: vertical;
     }
@@ -22,12 +23,12 @@ class PipelineScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: #8f9a4d;
-        background: #2f341e;
+        color: $accent;
+        background: $surface;
     }
 
     #stats_container {
-        border: solid #b9982f;
+        border: solid $border_dim;
         margin: 1 2;
         padding: 0 1;
     }
@@ -49,9 +50,9 @@ class PipelineScreen(Screen):
     #footer {
         dock: bottom;
         height: 1;
-        color: #b4a959;
+        color: $muted;
     }
-    """
+    """)
 
     def compose(self):
         """Compose pipeline screen layout."""
@@ -110,14 +111,14 @@ class PipelineScreen(Screen):
                 last_run = stats.get("last_pipeline_run")
 
                 self.query_one("#unprocessed").update(
-                    f"Unprocessed asteroids: [cyan]{unprocessed}[/cyan]"
+                    f"Unprocessed asteroids: [{theme.ACCENT}]{unprocessed}[/{theme.ACCENT}]"
                 )
                 self.query_one("#analyzed_today").update(
-                    f"Analyzed today: [cyan]{analyzed_today}[/cyan]"
+                    f"Analyzed today: [{theme.ACCENT}]{analyzed_today}[/{theme.ACCENT}]"
                 )
                 self.query_one("#high_risks").update(
-                    f"High/Critical risks: [yellow]{high_risks}[/yellow]" if high_risks > 0
-                    else f"High/Critical risks: [green]{high_risks}[/green]"
+                    f"High/Critical risks: [{theme.CRITICAL}]{high_risks}[/{theme.CRITICAL}]" if high_risks > 0
+                    else f"High/Critical risks: [{theme.LOW}]{high_risks}[/{theme.LOW}]"
                 )
 
                 if last_run:
@@ -131,15 +132,15 @@ class PipelineScreen(Screen):
                 else:
                     self.query_one("#last_run").update("Last run: Never")
 
-                self.query_one("#run_status").update("Status: [green]Ready[/green]")
+                self.query_one("#run_status").update(f"Status: [{theme.LOW}]Ready[/{theme.LOW}]")
             else:
                 self.query_one("#run_status").update(
-                    f"Status: [red]Error - {stats.get('error', 'Unknown')}[/red]"
+                    f"Status: [{theme.CRITICAL}]Error - {stats.get('error', 'Unknown')}[/{theme.CRITICAL}]"
                 )
         except Exception as e:
             status_widget = self._get_status_widget()
             if status_widget:
-                status_widget.update(f"Status: [red]Error: {str(e)[:40]}[/red]")
+                status_widget.update(f"Status: [{theme.CRITICAL}]Error: {str(e)[:40]}[/{theme.CRITICAL}]")
             logging.error(f"Failed to refresh pipeline stats: {str(e)}")
 
     @work(exclusive=True)
@@ -152,7 +153,7 @@ class PipelineScreen(Screen):
         button.disabled = True
         button.label = "⟳ Running..."
         if status_widget:
-            status_widget.update("Status: [yellow]Pipeline running...[/yellow]")
+            status_widget.update(f"Status: [{theme.MEDIUM}]Pipeline running...[/{theme.MEDIUM}]")
 
         try:
             worker = self.run_worker(lambda: run_pipeline(limit=100), thread=True)
@@ -168,15 +169,14 @@ class PipelineScreen(Screen):
                 msg = f"✓ Processed: {processed}, Failed: {failed}, Skipped: {skipped}"
                 button.label = msg[:40]
                 if status_widget:
-                    status_widget.update(f"Status: [green]{msg}[/green]")
+                    status_widget.update(f"Status: [{theme.LOW}]{msg}[/{theme.LOW}]")
 
-                # Kick off stats refresh as a new background worker (non awaitable)
                 self.refresh_stats()
             else:
                 error_msg = result.get("error", "Unknown error")
                 button.label = f"✗ Failed: {error_msg[:30]}"
                 if status_widget:
-                    status_widget.update("Status: [red]Pipeline failed[/red]")
+                    status_widget.update(f"Status: [{theme.CRITICAL}]Pipeline failed[/{theme.CRITICAL}]")
 
             self.set_timer(4, lambda: self._reset_button(button, original_label))
 
@@ -184,7 +184,7 @@ class PipelineScreen(Screen):
             button.label = f"✗ Error: {str(e)[:25]}"
             status_widget = self._get_status_widget()
             if status_widget:
-                status_widget.update(f"Status: [red]Exception: {str(e)[:35]}[/red]")
+                status_widget.update(f"Status: [{theme.CRITICAL}]Exception: {str(e)[:35]}[/{theme.CRITICAL}]")
             self.set_timer(4, lambda: self._reset_button(button, original_label))
 
     def _reset_button(self, button: Button, label: str) -> None:

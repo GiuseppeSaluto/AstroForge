@@ -6,20 +6,16 @@ from textual import work
 
 from app.client.api_client import get_analyzed_asteroids
 from app.screens.asteroid_detail import AsteroidDetailScreen
+from app import theme
 
-_RISK_COLOR = {
-    "Critical": "red",
-    "High":     "red",
-    "Medium":   "yellow",
-    "Low":      "green",
-}
+_RISK_COLOR = theme.RISK_COLOR
 
 _FILTERS = ["All", "Low", "Medium", "High", "Critical"]
 
 
 class AsteroidsScreen(Screen):
 
-    CSS = """
+    CSS = theme.apply("""
     AsteroidsScreen {
         layout: vertical;
     }
@@ -29,8 +25,8 @@ class AsteroidsScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: #8f9a4d;
-        background: #2f341e;
+        color: $accent;
+        background: $surface;
     }
 
     #filter_row {
@@ -41,7 +37,7 @@ class AsteroidsScreen(Screen):
 
     #filter_label {
         width: auto;
-        color: #b4a959;
+        color: $muted;
         content-align: left middle;
         margin-right: 1;
     }
@@ -52,22 +48,22 @@ class AsteroidsScreen(Screen):
     }
 
     .filter-btn.active {
-        background: #8f9a4d;
-        color: #12170f;
+        background: $accent;
+        color: $bg;
         text-style: bold;
-        border-top: tall #aabb5d;
-        border-bottom: tall #6a7338;
+        border-top: tall $accent;
+        border-bottom: tall $border_dim;
     }
 
     #asteroids_table {
-        border: solid #b9982f;
+        border: solid $border;
         margin: 0 2;
     }
 
     #status_bar {
         height: 1;
         margin: 0 2;
-        color: #b4a959;
+        color: $muted;
         content-align: left middle;
     }
 
@@ -80,7 +76,7 @@ class AsteroidsScreen(Screen):
     #controls Button {
         margin: 0 1;
     }
-    """
+    """)
 
     def __init__(self) -> None:
         super().__init__()
@@ -170,7 +166,7 @@ class AsteroidsScreen(Screen):
         if not asteroids:
             table.add_row("No results for this filter", "--", "--", "--", "--", "--", "--", "--")
             self.query_one("#status_bar").update(
-                f"[yellow]0 asteroids ({self._active_filter} filter)[/yellow]"
+                f"[{theme.MEDIUM}]0 asteroids ({self._active_filter} filter)[/{theme.MEDIUM}]"
             )
             return
 
@@ -194,8 +190,8 @@ class AsteroidsScreen(Screen):
         shown = len(asteroids)
         filter_note = f" — filter: {self._active_filter}" if self._active_filter != "All" else ""
         self.query_one("#status_bar").update(
-            f"[green]{shown} asteroids{filter_note}[/green]  "
-            f"[dim]({total} total)  ↑↓ navigate  Enter / click to view detail[/dim]"
+            f"[{theme.LOW}]{shown} asteroids{filter_note}[/{theme.LOW}]  "
+            f"[{theme.MUTED}]({total} total)  ↑↓ navigate  Enter / click to view detail[/{theme.MUTED}]"
         )
 
     # ── Data loading ──────────────────────────────────────────────────────────
@@ -222,4 +218,4 @@ class AsteroidsScreen(Screen):
             table.add_row(
                 f"Error: {str(e)[:50]}", "--", "--", "--", "--", "--", "--", "--"
             )
-            self.query_one("#status_bar").update(f"[red]Load failed: {str(e)[:60]}[/red]")
+            self.query_one("#status_bar").update(f"[{theme.CRITICAL}]Load failed: {str(e)[:60]}[/{theme.CRITICAL}]")

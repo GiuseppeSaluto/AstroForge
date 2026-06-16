@@ -8,6 +8,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Static
 
 from app.client.api_client import get_nasa_asteroids
+from app import theme
 
 try:
     import plotext as _plt
@@ -50,11 +51,11 @@ def _stats_bar(asteroids: list) -> str:
     avg_diam = sum(a.get("diameter_km_avg", 0) for a in asteroids) / total
 
     return (
-        f"[cyan]Total:[/cyan] {total}  "
-        f"[red]Hazardous:[/red] {hazardous} ({haz_pct}%)  "
-        f"[yellow]Closest:[/yellow] {closest_name} @ {closest_km:,.0f} km  "
-        f"[magenta]Fastest:[/magenta] {fastest_kps:.1f} km/s  "
-        f"[green]Avg ⌀:[/green] {avg_diam:.3f} km"
+        f"[{theme.TEXT}]Total:[/{theme.TEXT}] {total}  "
+        f"[{theme.CRITICAL}]Hazardous:[/{theme.CRITICAL}] {hazardous} ({haz_pct}%)  "
+        f"[{theme.MEDIUM}]Closest:[/{theme.MEDIUM}] {closest_name} @ {closest_km:,.0f} km  "
+        f"[{theme.HIGH}]Fastest:[/{theme.HIGH}] {fastest_kps:.1f} km/s  "
+        f"[{theme.LOW}]Avg ⌀:[/{theme.LOW}] {avg_diam:.3f} km"
     )
 
 
@@ -94,9 +95,9 @@ def _distance_chart(asteroids: list, width: int, height: int) -> Text:
     haz_y  = [sorted_asts[i]["miss_distance_km"] / 1_000_000 for i in haz_x]
 
     if safe_x:
-        _plt.scatter(safe_x, safe_y, label="Safe", marker="dot", color="green")
+        _plt.scatter(safe_x, safe_y, label="Safe", marker="dot", color=theme.CHART_SAFE)
     if haz_x:
-        _plt.scatter(haz_x, haz_y, label="Hazardous", marker="dot", color="red")
+        _plt.scatter(haz_x, haz_y, label="Hazardous", marker="dot", color=theme.CHART_HAZARDOUS)
 
     step = max(1, len(x_all) // 7)
     _plt.xticks(x_all[::step], [sorted_asts[i]["close_approach_date"][-5:] for i in x_all[::step]])
@@ -125,7 +126,7 @@ def _diameter_chart(asteroids: list, width: int, height: int) -> Text:
     _plt.plotsize(width, height)
     _plt.title("Size Distribution")
     _plt.theme("dark")
-    _plt.bar(labels, counts, color="olive")
+    _plt.bar(labels, counts, color=theme.CHART_BAR)
 
     y_max = max(counts) if max(counts) > 0 else 1
     ticks, tick_labels = _count_ticks(y_max)
@@ -149,7 +150,7 @@ def _velocity_chart(asteroids: list, width: int, height: int) -> Text:
     _plt.plotsize(width, height)
     _plt.title("Velocity Distribution")
     _plt.theme("dark")
-    _plt.bar(labels, counts, color="cyan")
+    _plt.bar(labels, counts, color=theme.CHART_BAR)
 
     y_max = max(counts) if max(counts) > 0 else 1
     ticks, tick_labels = _count_ticks(y_max)
@@ -160,7 +161,7 @@ def _velocity_chart(asteroids: list, width: int, height: int) -> Text:
 
 class ChartsScreen(Screen):
 
-    CSS = """
+    CSS = theme.apply("""
     ChartsScreen {
         layout: vertical;
     }
@@ -170,8 +171,8 @@ class ChartsScreen(Screen):
         height: 2;
         content-align: center middle;
         text-style: bold;
-        color: #8f9a4d;
-        background: #2f341e;
+        color: $accent;
+        background: $surface;
     }
 
     #controls {
@@ -183,7 +184,7 @@ class ChartsScreen(Screen):
     #date_range {
         width: 1fr;
         height: 1;
-        color: #b9982f;
+        color: $muted;
         content-align: left middle;
         margin: 0 1;
     }
@@ -191,12 +192,12 @@ class ChartsScreen(Screen):
     #stats_bar {
         height: 1;
         margin: 0 3;
-        color: #f1e7af;
+        color: $text;
         content-align: left middle;
     }
 
     #chart_distance {
-        border: solid #8f9a4d;
+        border: solid $border_dim;
         margin: 1 2 0 2;
         height: 1fr;
     }
@@ -207,30 +208,30 @@ class ChartsScreen(Screen):
     }
 
     #chart_diameter {
-        border: solid #b9982f;
+        border: solid $border_dim;
         margin: 1 1 0 0;
         width: 1fr;
     }
 
     #chart_velocity {
-        border: solid #8f9a4d;
+        border: solid $border_dim;
         margin: 1 0 0 1;
         width: 1fr;
     }
 
     #status {
         height: 1;
-        color: #b4a959;
+        color: $muted;
         margin: 0 2;
     }
 
     #footer {
         dock: bottom;
         height: 1;
-        color: #b4a959;
+        color: $muted;
         text-align: center;
     }
-    """
+    """)
 
     def __init__(self) -> None:
         super().__init__()
@@ -326,9 +327,9 @@ class ChartsScreen(Screen):
             self.query_one("#chart_diameter").update(_diameter_chart(asteroids, w_half, h_bot))
             self.query_one("#chart_velocity").update(_velocity_chart(asteroids, w_half, h_bot))
             self.query_one("#status").update(
-                f"[green]{len(asteroids)} asteroids — {start_str} → {end_str}[/green]"
+                f"[{theme.LOW}]{len(asteroids)} asteroids — {start_str} → {end_str}[/{theme.LOW}]"
             )
 
         except Exception as e:
             logger.error(f"Chart load error: {e}", exc_info=True)
-            self.query_one("#status").update(f"[red]Error: {str(e)[:80]}[/red]")
+            self.query_one("#status").update(f"[{theme.CRITICAL}]Error: {str(e)[:80]}[/{theme.CRITICAL}]")

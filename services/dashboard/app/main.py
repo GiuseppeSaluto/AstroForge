@@ -7,15 +7,16 @@ from app.screens.asteroids import AsteroidsScreen
 from app.screens.charts import ChartsScreen
 from app.screens.pipeline import PipelineScreen
 from app.screens.logs import LogsScreen
+from app import theme
 
 
 class AstroForgeDashboard(App):
     """AstroForge Dashboard - Terminal UI for Asteroid Analysis"""
 
-    CSS = """
+    CSS = theme.apply("""
     Screen {
-        background: #12170f;
-        color: #f1e7af;
+        background: $bg;
+        color: $text;
     }
 
     Button {
@@ -23,33 +24,34 @@ class AstroForgeDashboard(App):
     }
 
     Button.-primary {
-        background: #c8952a;
-        color: #12170f;
+        background: $accent;
+        color: $bg;
         text-style: bold;
-        border-top: tall #daa83a;
-        border-bottom: tall #8a6318;
+        border-top: tall $accent;
+        border-bottom: tall $border_dim;
     }
 
     Button.-primary:hover {
-        background: #daa83a;
-        border-top: tall #eab84a;
-        border-bottom: tall #9a7328;
+        background: $muted;
+        color: $bg;
+        border-top: tall $accent;
+        border-bottom: tall $border_dim;
     }
 
     DataTable {
-        border: solid #b9982f;
+        border: solid $border;
     }
 
     DataTable > .datatable--header {
-        background: #2f341e;
-        color: #f1e7af;
+        background: $surface;
+        color: $accent;
         text-style: bold;
     }
 
     RichLog {
-        border: solid #b9982f;
+        border: solid $border_dim;
     }
-    """
+    """)
 
     TITLE = "AstroForge"
     SUB_TITLE = "Asteroid Risk Analysis Dashboard"

@@ -7,57 +7,58 @@ import asyncio
 import logging
 
 from app.client.api_client import get_system_status, get_pipeline_stats, run_pipeline
+from app import theme
 
 logger = logging.getLogger(__name__)
 
 
 class StatusBadge(Static):
     """Display a colored status badge."""
-    
+
     def __init__(self, label: str, status: bool = False):
         super().__init__()
         self.label = label
         self.status = status
-    
+
     def render(self) -> str:
         indicator = "● " if self.status else "○ "
-        color = "olive" if self.status else "red"
+        color = theme.LOW if self.status else theme.CRITICAL
         return f"[{color}]{indicator}{self.label}[/{color}]"
 
 
 class HomeScreen(Screen):
     """Main dashboard home screen with system status and quick stats."""
 
-    CSS = """
+    CSS = theme.apply("""
     HomeScreen {
         layout: vertical;
-        background: #12170f;
+        background: $bg;
     }
 
     #title {
         dock: top;
         height: 3;
         content-align: center middle;
-        color: #8f9a4d;
-        background: #2f341e;
+        color: $accent;
+        background: $surface;
         text-style: bold;
     }
 
     #system_status {
         height: auto;
-        border: solid #8f9a4d;
+        border: solid $border_dim;
         margin: 1 2;
     }
 
     .section-title {
-        color: #8f9a4d;
+        color: $accent;
         text-style: bold;
         margin: 1 0 0 0;
     }
 
     #pipeline_stats {
         height: auto;
-        border: solid #b9982f;
+        border: solid $border_dim;
         margin: 1 2;
     }
 
@@ -73,10 +74,10 @@ class HomeScreen(Screen):
     #footer {
         dock: bottom;
         height: 1;
-        color: #b4a959;
+        color: $muted;
         text-align: center;
     }
-    """
+    """)
 
     def compose(self):
         """Compose the home screen layout."""
@@ -145,14 +146,18 @@ class HomeScreen(Screen):
             rust_ok = rust.get("status") == "ok"
 
             # Update status widgets
+            def _status(ok: bool, yes: str, no: str) -> str:
+                c = theme.LOW if ok else theme.CRITICAL
+                return f"[{c}]{'✓ ' + yes if ok else '✗ ' + no}[/{c}]"
+
             self.query_one("#backend_status").update(
-                f"Backend: {'✓ Connected' if backend_ok else '✗ Unavailable'}"
+                f"Backend:     {_status(backend_ok, 'Connected', 'Unavailable')}"
             )
             self.query_one("#mongodb_status").update(
-                f"MongoDB: {'✓ Connected' if mongodb_ok else '✗ Disconnected'}"
+                f"MongoDB:     {_status(mongodb_ok, 'Connected', 'Disconnected')}"
             )
             self.query_one("#rust_status").update(
-                f"Rust Engine: {'✓ Ready' if rust_ok else '✗ Unreachable'}"
+                f"Rust Engine: {_status(rust_ok, 'Ready', 'Unreachable')}"
             )
 
             # Get pipeline stats if backend is healthy
@@ -206,7 +211,6 @@ class HomeScreen(Screen):
                 stats = result.get("statistics", {})
                 processed = stats.get("processed", 0)
                 button.label = f"✓ {processed} processed"
-                # Refresh data after pipeline completes
                 self.refresh_all_data()
             else:
                 button.label = "✗ Pipeline failed"
