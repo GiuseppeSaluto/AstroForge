@@ -170,9 +170,15 @@ class AsteroidsScreen(Screen):
             )
             return
 
+        added_ids = set()
         for a in asteroids:
+            asteroid_id = a.get("id", "")
+            if asteroid_id in added_ids:
+                continue
+            added_ids.add(asteroid_id)
+
             risk_level = a.get("risk_level", "Unknown")
-            color = _RISK_COLOR.get(risk_level, "white")
+            color = _RISK_COLOR.get(risk_level, theme.TEXT)
 
             table.add_row(
                 a.get("name", "?")[:28],
@@ -183,7 +189,7 @@ class AsteroidsScreen(Screen):
                 f"{a.get('diameter_km', 0):.4f}",
                 f"{a.get('velocity_kps', 0):.2f}",
                 "[red]●[/red]" if a.get("hazardous") else "[green]○[/green]",
-                key=a.get("id", ""),
+                key=asteroid_id,
             )
 
         total = len(self._all_asteroids)
