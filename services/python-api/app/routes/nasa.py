@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from flask import Blueprint, jsonify, request, current_app
 from requests.exceptions import RequestException, HTTPError
 
@@ -87,6 +87,15 @@ def save_neo_data():
                     saved += 1
                 else:
                     skipped += 1
+
+        mongo.save_nasa_feed({
+            "retrieved_at": datetime.now(timezone.utc),
+            "feed_start_date": start_date,
+            "feed_end_date": end_date,
+            "total_in_feed": saved + skipped,
+            "saved": saved,
+            "skipped": skipped,
+        })
 
         logger.info(f"neo/save: {saved} saved, {skipped} skipped")
         return jsonify({"status": "success", "stored": saved, "skipped": skipped}), 200
