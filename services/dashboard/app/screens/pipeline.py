@@ -1,6 +1,6 @@
 import logging
 from textual.screen import Screen
-from textual.widgets import Static, Button
+from textual.widgets import Static, Button, RichLog, LoadingIndicator
 from textual.containers import Vertical, Horizontal
 from textual.css.query import NoMatches
 from textual import work
@@ -11,7 +11,6 @@ from app import theme
 
 
 class PipelineScreen(Screen):
-    """Pipeline control and monitoring screen."""
 
     CSS = theme.apply("""
     PipelineScreen {
@@ -29,8 +28,9 @@ class PipelineScreen(Screen):
 
     #stats_container {
         border: solid $border_dim;
-        margin: 1 2;
+        margin: 1 2 0 2;
         padding: 0 1;
+        height: auto;
     }
 
     .stat-line {
@@ -40,11 +40,27 @@ class PipelineScreen(Screen):
 
     #actions {
         height: auto;
-        margin: 1 2;
+        margin: 1 2 0 2;
     }
 
     Button {
         margin: 0 1;
+    }
+
+    #run_status {
+        height: 1;
+        margin: 0 2;
+        color: $muted;
+    }
+
+    #loading {
+        height: 1;
+        margin: 0 2;
+    }
+
+    #activity_log {
+        border: solid $border_dim;
+        margin: 1 2;
     }
 
     #footer {
@@ -54,8 +70,10 @@ class PipelineScreen(Screen):
     }
     """)
 
+    _elapsed_seconds: int = 0
+    _pipeline_running: bool = False
+
     def compose(self):
-        """Compose pipeline screen layout."""
         yield Static("PIPELINE CONTROL", id="title")
 
         with Vertical(id="stats_container"):
@@ -63,32 +81,47 @@ class PipelineScreen(Screen):
             yield Static("Analyzed today: Loading...", classes="stat-line", id="analyzed_today")
             yield Static("High/Critical risks: Loading...", classes="stat-line", id="high_risks")
             yield Static("Last run: --", classes="stat-line", id="last_run")
-            yield Static("Status: --", classes="stat-line", id="run_status")
 
         with Horizontal(id="actions"):
             yield Button("▶ Run Now", id="run_pipeline", variant="primary")
             yield Button("🔄 Refresh", id="refresh_stats")
             yield Button("⬅ Back", id="back")
 
+        yield Static("", id="run_status")
+        yield LoadingIndicator(id="loading")
+        yield RichLog(id="activity_log", highlight=False, markup=True, wrap=False)
+
         yield Static(
             "Pipeline analysis takes ~30-60 seconds depending on asteroid count",
             id="footer",
         )
 
+    def on_mount(self) -> None:
+        self.query_one("#loading").display = False
+        self._log("System ready. Press [Run Now] to start analysis.")
+        self.refresh_stats()
+        self.set_interval(15, self.refresh_stats)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _log(self, message: str) -> None:
+        ts = datetime.now().strftime("%H:%M:%S")
+        try:
+            self.query_one("#activity_log", RichLog).write(
+                f"[{theme.MUTED}]{ts}[/{theme.MUTED}]  {message}"
+            )
+        except NoMatches:
+            pass
+
     def _get_status_widget(self) -> Static | None:
-        """Safely retrieve the #run_status widget, returning None if not found."""
         try:
             return self.query_one("#run_status", Static)
         except NoMatches:
             return None
 
-    def on_mount(self) -> None:
-        """Initialize screen and start refreshing."""
-        self.refresh_stats()
-        self.set_interval(15, self.refresh_stats)
+    # ── Events ────────────────────────────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
         if event.button.id == "run_pipeline":
             self.run_pipeline_action()
         elif event.button.id == "refresh_stats":
@@ -96,9 +129,10 @@ class PipelineScreen(Screen):
         elif event.button.id == "back":
             self.app.action_show_home()
 
+    # ── Stats refresh ─────────────────────────────────────────────────────────
+
     @work(exclusive=True)
     async def refresh_stats(self) -> None:
-        """Refresh pipeline statistics."""
         try:
             worker = self.run_worker(get_pipeline_stats, thread=True)
             await worker.wait()
@@ -117,13 +151,14 @@ class PipelineScreen(Screen):
                     f"Analyzed today: [{theme.ACCENT}]{analyzed_today}[/{theme.ACCENT}]"
                 )
                 self.query_one("#high_risks").update(
-                    f"High/Critical risks: [{theme.CRITICAL}]{high_risks}[/{theme.CRITICAL}]" if high_risks > 0
+                    f"High/Critical risks: [{theme.CRITICAL}]{high_risks}[/{theme.CRITICAL}]"
+                    if high_risks > 0
                     else f"High/Critical risks: [{theme.LOW}]{high_risks}[/{theme.LOW}]"
                 )
 
                 if last_run:
                     try:
-                        dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+                        dt = datetime.fromisoformat(last_run.replace("Z", "+00:00"))
                         self.query_one("#last_run").update(
                             f"Last run: {dt.astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
                         )
@@ -131,63 +166,101 @@ class PipelineScreen(Screen):
                         self.query_one("#last_run").update(f"Last run: {last_run}")
                 else:
                     self.query_one("#last_run").update("Last run: Never")
-
-                self.query_one("#run_status").update(f"Status: [{theme.LOW}]Ready[/{theme.LOW}]")
             else:
-                self.query_one("#run_status").update(
-                    f"Status: [{theme.CRITICAL}]Error - {stats.get('error', 'Unknown')}[/{theme.CRITICAL}]"
-                )
+                status = self._get_status_widget()
+                if status:
+                    status.update(
+                        f"[{theme.CRITICAL}]Stats error: {stats.get('error', '?')}[/{theme.CRITICAL}]"
+                    )
         except Exception as e:
-            status_widget = self._get_status_widget()
-            if status_widget:
-                status_widget.update(f"Status: [{theme.CRITICAL}]Error: {str(e)[:40]}[/{theme.CRITICAL}]")
-            logging.error(f"Failed to refresh pipeline stats: {str(e)}")
+            logging.error(f"Failed to refresh pipeline stats: {e}")
+
+    # ── Pipeline run ──────────────────────────────────────────────────────────
 
     @work(exclusive=True)
     async def run_pipeline_action(self) -> None:
-        """Execute pipeline run."""
         button = self.query_one("#run_pipeline", Button)
-        status_widget = self._get_status_widget()
+        loading = self.query_one("#loading", LoadingIndicator)
+        status = self._get_status_widget()
 
-        original_label = button.label
+        # — enter running state —
+        self._pipeline_running = True
+        self._elapsed_seconds = 0
         button.disabled = True
-        button.label = "⟳ Running..."
-        if status_widget:
-            status_widget.update(f"Status: [{theme.MEDIUM}]Pipeline running...[/{theme.MEDIUM}]")
+        button.label = "Running..."
+        loading.display = True
+        if status:
+            status.update(f"[{theme.MUTED}]Elapsed: 0s[/{theme.MUTED}]")
+
+        self._log(f"[{theme.ACCENT}]▶ Pipeline started[/{theme.ACCENT}]")
+
+        # elapsed timer: ticks every second
+        def _tick():
+            self._elapsed_seconds += 1
+            if status:
+                status.update(
+                    f"[{theme.MUTED}]Elapsed: {self._elapsed_seconds}s[/{theme.MUTED}]"
+                )
+
+        elapsed_timer = self.set_interval(1.0, _tick)
+
+        # timed phase messages — based on actual pipeline steps
+        def _phase(msg: str):
+            if self._pipeline_running:
+                self._log(msg)
+
+        self.set_timer(1.5, lambda: _phase("Querying MongoDB for unprocessed asteroids..."))
+        self.set_timer(4.0, lambda: _phase(f"Dispatching batch to Rust Engine [{theme.ACCENT}]:8080[/{theme.ACCENT}]..."))
+        self.set_timer(7.0, lambda: _phase("Computing impact energy and risk scores..."))
+        self.set_timer(12.0, lambda: _phase("Persisting analysis results to MongoDB..."))
 
         try:
             worker = self.run_worker(lambda: run_pipeline(limit=100), thread=True)
             await worker.wait()
             result = worker.result
 
+            self._pipeline_running = False
+            elapsed_timer.stop()
+            loading.display = False
+
             if "error" not in result:
                 stats = result.get("statistics", {})
                 processed = stats.get("processed", 0)
                 failed = stats.get("failed", 0)
                 skipped = stats.get("skipped", 0)
+                elapsed = self._elapsed_seconds
 
-                msg = f"✓ Processed: {processed}, Failed: {failed}, Skipped: {skipped}"
-                button.label = msg[:40]
-                if status_widget:
-                    status_widget.update(f"Status: [{theme.LOW}]{msg}[/{theme.LOW}]")
+                self._log(
+                    f"[{theme.LOW}]✓ Done in {elapsed}s — "
+                    f"processed: {processed}  "
+                    f"skipped: {skipped}  "
+                    f"failed: [{theme.CRITICAL if failed > 0 else theme.LOW}]{failed}[/{theme.CRITICAL if failed > 0 else theme.LOW}]"
+                    f"[/{theme.LOW}]"
+                )
 
+                if status:
+                    status.update(
+                        f"[{theme.LOW}]Last run: {processed} analyzed in {elapsed}s[/{theme.LOW}]"
+                    )
+
+                button.label = "▶ Run Now"
+                button.disabled = False
                 self.refresh_stats()
+
             else:
                 error_msg = result.get("error", "Unknown error")
-                button.label = f"✗ Failed: {error_msg[:30]}"
-                if status_widget:
-                    status_widget.update(f"Status: [{theme.CRITICAL}]Pipeline failed[/{theme.CRITICAL}]")
-
-            self.set_timer(4, lambda: self._reset_button(button, original_label))
+                self._log(f"[{theme.CRITICAL}]✗ Pipeline failed: {error_msg}[/{theme.CRITICAL}]")
+                if status:
+                    status.update(f"[{theme.CRITICAL}]Failed — see log above[/{theme.CRITICAL}]")
+                button.label = "▶ Run Now"
+                button.disabled = False
 
         except Exception as e:
-            button.label = f"✗ Error: {str(e)[:25]}"
-            status_widget = self._get_status_widget()
-            if status_widget:
-                status_widget.update(f"Status: [{theme.CRITICAL}]Exception: {str(e)[:35]}[/{theme.CRITICAL}]")
-            self.set_timer(4, lambda: self._reset_button(button, original_label))
-
-    def _reset_button(self, button: Button, label: str) -> None:
-        """Reset button to original state."""
-        button.label = label
-        button.disabled = False
+            self._pipeline_running = False
+            elapsed_timer.stop()
+            loading.display = False
+            self._log(f"[{theme.CRITICAL}]✗ Exception: {str(e)}[/{theme.CRITICAL}]")
+            if status:
+                status.update(f"[{theme.CRITICAL}]Error[/{theme.CRITICAL}]")
+            button.label = "▶ Run Now"
+            button.disabled = False
