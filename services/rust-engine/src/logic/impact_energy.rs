@@ -56,11 +56,14 @@ impl ImpactPhysics {
             return 0.0;
         }
 
-        // Logarithmic scaling for human-readable risk metrics.
-        let log_energy = (energy_joules.log10()).max(0.0);
-
-        // Normalize: 15 = ~1 megaton, 20 = ~100 megatons, etc.
-        let normalized = (log_energy / 20.0) * 100.0;
+        // Logarithmic scale calibrated on real NEO events:
+        //   baseline 10^12 J  (~1m rock)          → score  0  (Low)
+        //   ~10^15.1 J        (Chelyabinsk, 17m)  → score ~27 (Medium)
+        //   ~10^16.6 J        (Tunguska, 50m)     → score ~42 (Medium)
+        //   ~10^18 J          (city-killer, 200m) → score ~55 (High)
+        //   ~10^20.2 J        (global, 1 km)      → score ~75 (Critical)
+        let log_energy = energy_joules.log10();
+        let normalized = (log_energy - 12.0) / 11.0 * 100.0;
 
         normalized.clamp(0.0, 100.0)
     }

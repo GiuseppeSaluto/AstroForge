@@ -65,19 +65,19 @@ class MongoDBClient:
     def _init_asteroid_analyses(self):
         if self.db is None:
             raise RuntimeError("Database not initialized")
-            
+
         collection = self.db["asteroid_analyses"]
-        collection.create_index("neo_reference_id")
+        collection.create_index("neo_reference_id", unique=True)
         collection.create_index("analysis_timestamp")
         logger.debug("Initialized indexes for 'asteroid_analyses'")
 
     def _init_asteroids_raw(self):
         if self.db is None:
             raise RuntimeError("Database not initialized")
-            
+
         collection = self.db["asteroids_raw"]
         collection.create_index("date")
-        collection.create_index("asteroid.id")
+        collection.create_index("asteroid.id", unique=True)
         collection.create_index("stored_at")
         logger.debug("Initialized indexes for 'asteroids_raw'")
 
@@ -95,22 +95,30 @@ class MongoDBClient:
             logger.error(f"Failed to save NASA feed: {e}")
             raise
 
-    def save_raw_asteroid(self, date: str, asteroid: dict):
+    def save_raw_asteroid(self, date: str, asteroid: dict) -> bool:
+        """Upsert a raw asteroid. Returns True if newly inserted, False if it already existed."""
         if self.db is None:
             raise RuntimeError("Database not initialized. Call init_app() first.")
 
+        asteroid_id = asteroid.get("id") or asteroid.get("neo_reference_id", "")
+
         try:
             collection = self.db["asteroids_raw"]
-            document = {
-                "date": date,
-                "asteroid": asteroid,
-                "stored_at": datetime.now(timezone.utc),
-            }
-            result = collection.insert_one(document)
-            logger.info(f"Inserted raw asteroid for {date} with id {result.inserted_id}")
-            return result.inserted_id
+            result = collection.update_one(
+                {"asteroid.id": asteroid_id},
+                {"$setOnInsert": {
+                    "date": date,
+                    "asteroid": asteroid,
+                    "stored_at": datetime.now(timezone.utc),
+                }},
+                upsert=True,
+            )
+            is_new = result.upserted_id is not None
+            if is_new:
+                logger.info(f"Inserted raw asteroid {asteroid_id} for {date}")
+            return is_new
         except PyMongoError as e:
-            logger.error(f"Failed to save raw asteroid: {e}")
+            logger.error(f"Failed to save raw asteroid {asteroid_id}: {e}")
             raise
 
     def count_raw_asteroids(self) -> int:
@@ -151,50 +159,44 @@ class MongoDBClient:
             raise RuntimeError("Database not initialized")
 
         try:
-            collection = self.db["asteroids_raw"]
-            analyses_collection = self.db["asteroid_analyses"]
-            
-            analyzed_ids = set(
-                doc["neo_reference_id"] 
-                for doc in analyses_collection.find({}, {"neo_reference_id": 1})
-            )
-            
-            unprocessed = []
-            cursor = collection.find({})
-            
-            for doc in cursor:
-                asteroid_data = doc.get("asteroid", {})
-                asteroid_id = asteroid_data.get("id")
-                
-                if asteroid_id and asteroid_id not in analyzed_ids:
-                    unprocessed.append(doc)
-                    
-                if len(unprocessed) >= limit:
-                    break
-            
-            logger.info(f"Found {len(unprocessed)} unprocessed asteroids")
-            return unprocessed
+            pipeline = [
+                {"$lookup": {
+                    "from": "asteroid_analyses",
+                    "localField": "asteroid.id",
+                    "foreignField": "neo_reference_id",
+                    "as": "existing_analysis",
+                }},
+                {"$match": {"existing_analysis": {"$size": 0}}},
+                {"$project": {"existing_analysis": 0}},
+                {"$limit": limit},
+            ]
+            result = list(self.db["asteroids_raw"].aggregate(pipeline))
+            logger.info(f"Found {len(result)} unprocessed asteroids")
+            return result
 
         except PyMongoError as e:
             logger.error(f"Failed to fetch unprocessed asteroids: {e}")
             raise
 
-    def save_analysis_result(self, asteroid_id: str, risk_result: dict) -> str:
+    def save_analysis_result(self, asteroid_id: str, risk_result: dict) -> None:
         if self.db is None:
             raise RuntimeError("Database not initialized")
 
         try:
             collection = self.db["asteroid_analyses"]
-            document = {
-                "neo_reference_id": asteroid_id,
-                "analysis_timestamp": datetime.now(timezone.utc),
-                "risk_data": risk_result,
-            }
-            result = collection.insert_one(document)
-            logger.info(f"Saved analysis for asteroid {asteroid_id}")
-            return str(result.inserted_id)
+            result = collection.update_one(
+                {"neo_reference_id": asteroid_id},
+                {"$set": {
+                    "neo_reference_id": asteroid_id,
+                    "analysis_timestamp": datetime.now(timezone.utc),
+                    "risk_data": risk_result,
+                }},
+                upsert=True,
+            )
+            action = "Inserted" if result.upserted_id else "Updated"
+            logger.info(f"{action} analysis for asteroid {asteroid_id}")
         except PyMongoError as e:
-            logger.error(f"Failed to save analysis result: {e}")
+            logger.error(f"Failed to save analysis result for {asteroid_id}: {e}")
             raise
 
     def close(self):

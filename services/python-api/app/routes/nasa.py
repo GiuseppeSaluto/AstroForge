@@ -78,23 +78,15 @@ def save_neo_data():
         if not mongo:
             raise RuntimeError("Mongo extension not initialized.")
 
-        # Deduplicate against existing records
-        existing_ids: set[str] = set(
-            doc.get("asteroid", {}).get("neo_reference_id", doc.get("asteroid", {}).get("id", ""))
-            for doc in mongo.db["asteroids_raw"].find({}, {"asteroid.id": 1, "asteroid.neo_reference_id": 1})
-        )
-
         saved = 0
         skipped = 0
         for date_str, asteroids in feed["near_earth_objects"].items():
             for asteroid in asteroids:
-                asteroid_id = asteroid.get("neo_reference_id", asteroid.get("id", ""))
-                if asteroid_id in existing_ids:
+                is_new = mongo.save_raw_asteroid(date_str, asteroid)
+                if is_new:
+                    saved += 1
+                else:
                     skipped += 1
-                    continue
-                mongo.save_raw_asteroid(date_str, asteroid)
-                existing_ids.add(asteroid_id)
-                saved += 1
 
         logger.info(f"neo/save: {saved} saved, {skipped} skipped")
         return jsonify({"status": "success", "stored": saved, "skipped": skipped}), 200
