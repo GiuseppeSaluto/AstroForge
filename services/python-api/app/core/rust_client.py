@@ -5,6 +5,29 @@ from app.core.config import RUST_ENGINE_URL, REQUEST_TIMEOUT
 from app.utils.logger import logger
 
 
+def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    if not RUST_ENGINE_URL:
+        raise ValueError("RUST_ENGINE_URL is not configured.")
+
+    url = f"{RUST_ENGINE_URL}/api/process/batch"
+    logger.info(f"Sending batch of {len(asteroid_dtos)} asteroids to Rust Engine")
+
+    try:
+        response = requests.post(url, json=asteroid_dtos, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Rust Engine batch request failed: {e}")
+        raise
+
+    try:
+        results = response.json()
+    except ValueError as e:
+        raise RuntimeError("Rust Engine returned invalid JSON for batch") from e
+
+    logger.info(f"Received {len(results)} results from Rust Engine batch")
+    return results
+
+
 def process_asteroid_with_rust(asteroid_dto: Dict[str, Any]) -> Dict[str, Any]:
     if not RUST_ENGINE_URL:
         raise ValueError("RUST_ENGINE_URL is not configured.")
