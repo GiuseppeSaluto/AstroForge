@@ -1,7 +1,7 @@
 import logging
 from textual.screen import Screen
 from textual.widgets import Static, Button
-from textual.containers import Vertical, Horizontal
+from textual.containers import Vertical, Horizontal, Grid
 from textual import work
 from datetime import datetime
 import asyncio
@@ -22,13 +22,12 @@ class HomeScreen(Screen):
         background: $bg;
     }
 
-    #title {
+    #header {
         dock: top;
-        height: 2;
-        content-align: center middle;
-        color: $accent;
-        background: $surface;
-        text-style: bold;
+        height: 4;
+        text-align: center;
+        background: $bg;
+        padding: 0 2;
     }
 
     #clock_bar {
@@ -39,83 +38,113 @@ class HomeScreen(Screen):
         content-align: center middle;
     }
 
-    .section-title {
+    #footer {
+        dock: bottom;
+        height: 1;
+        color: $muted;
+        content-align: center middle;
+        background: $surface;
+    }
+
+    #main_grid {
+        layout: grid;
+        grid-size: 2;
+        grid-gutter: 1;
+        height: 1fr;
+        margin: 1 2 0 2;
+    }
+
+    .panel {
+        border: solid $border_dim;
+        padding: 1;
+    }
+
+    .panel-title {
         color: $accent;
         text-style: bold;
-        margin: 1 0 0 0;
+        margin: 0 0 1 0;
     }
 
-    #system_status {
-        height: auto;
-        border: solid $border_dim;
-        margin: 1 2;
-    }
-
-    #pipeline_stats {
-        height: auto;
-        border: solid $border_dim;
-        margin: 1 2;
+    .stat-row {
+        margin: 0 0 1 0;
     }
 
     #quick_actions {
-        height: auto;
+        height: 3;
         margin: 1 2;
     }
 
     #quick_actions Button {
         margin: 0 1;
     }
-
-    #footer {
-        dock: bottom;
-        height: 1;
-        color: $muted;
-        text-align: center;
-    }
     """)
 
     _countdown: int = _REFRESH_INTERVAL
 
     def compose(self):
-        yield Static("ASTROFORGE DASHBOARD", id="title")
+        yield Static("", id="header")
         yield Static("", id="clock_bar")
 
-        with Vertical(id="system_status"):
-            yield Static("SYSTEM STATUS", classes="section-title")
-            yield Static("Backend:     ", id="backend_status")
-            yield Static("MongoDB:     ", id="mongodb_status")
-            yield Static("Rust Engine: ", id="rust_status")
+        with Grid(id="main_grid"):
+            with Vertical(classes="panel"):
+                yield Static("", id="status_title", classes="panel-title")
+                yield Static("", id="backend_status", classes="stat-row")
+                yield Static("", id="mongodb_status", classes="stat-row")
+                yield Static("", id="rust_status", classes="stat-row")
+                yield Static("", id="scan_bar")
 
-        with Vertical(id="pipeline_stats"):
-            yield Static("PIPELINE STATISTICS", classes="section-title")
-            yield Static("Unprocessed asteroids: Loading...", id="unprocessed")
-            yield Static("Analyzed today: Loading...", id="analyzed_today")
-            yield Static("High/Critical risks: Loading...", id="high_risks")
-            yield Static("Last pipeline run: --", id="last_run")
+            with Vertical(classes="panel"):
+                yield Static("", id="stats_title", classes="panel-title")
+                yield Static("", id="stat_unprocessed", classes="stat-row")
+                yield Static("", id="stat_analyzed", classes="stat-row")
+                yield Static("", id="stat_risks", classes="stat-row")
+                yield Static("", id="stat_lastrun", classes="stat-row")
+                yield Static("", id="risk_bar")
 
-        with Vertical(id="quick_actions"):
-            yield Static("QUICK ACTIONS", classes="section-title")
-            with Horizontal():
-                yield Button("▶ Run Pipeline", id="run_pipeline", variant="primary")
-                yield Button("📊 Asteroids", id="asteroids")
-                yield Button("📋 Pipeline", id="pipeline")
-                yield Button("📈 Charts", id="charts")
-                yield Button("📝 Logs", id="logs")
+        with Horizontal(id="quick_actions"):
+            yield Button("▶  Run Pipeline", id="run_pipeline", variant="primary")
+            yield Button("◎  Asteroids", id="asteroids")
+            yield Button("≡  Pipeline", id="pipeline")
+            yield Button("↗  Charts", id="charts")
+            yield Button("≈  Logs", id="logs")
 
         yield Static(
-            "Shortcuts: q Quit  •  h Home  •  a Asteroids  •  c Charts  •  p Pipeline  •  l Logs",
+            "h Home  ·  a Asteroids  ·  c Charts  ·  p Pipeline  ·  l Logs  ·  q Quit",
             id="footer",
         )
 
     def on_mount(self) -> None:
+        self._render_header()
+        self._render_panel_titles()
         self._update_clock_bar()
+        self._update_data_age_bar()
         self.refresh_all_data()
         self.set_interval(1.0, self._tick)
 
-    # ── Clock & countdown ─────────────────────────────────────────────────────
+    # ── Static renders ────────────────────────────────────────────────────────
+
+    def _render_header(self) -> None:
+        sep = f"[{theme.BORDER_DIM}]{'═' * 64}[/{theme.BORDER_DIM}]"
+        self.query_one("#header", Static).update(
+            f"{sep}\n"
+            f"  [{theme.ACCENT}]◈  A S T R O F O R G E  ─  N E O   T H R E A T   T R A C K E R[/{theme.ACCENT}]\n"
+            f"  [{theme.MUTED}]NASA NeoWS  ·  Python REST API  ·  Rust Risk Engine  ·  MongoDB[/{theme.MUTED}]\n"
+            f"{sep}"
+        )
+
+    def _render_panel_titles(self) -> None:
+        self.query_one("#status_title", Static).update(
+            f"[{theme.ACCENT}]── SYSTEM STATUS[/{theme.ACCENT}]"
+        )
+        self.query_one("#stats_title", Static).update(
+            f"[{theme.ACCENT}]── MISSION STATISTICS[/{theme.ACCENT}]"
+        )
+
+    # ── Tick: clock + data-age bar ────────────────────────────────────────────
 
     def _tick(self) -> None:
         self._update_clock_bar()
+        self._update_data_age_bar()
         self._countdown -= 1
         if self._countdown <= 0:
             self._countdown = _REFRESH_INTERVAL
@@ -123,14 +152,29 @@ class HomeScreen(Screen):
 
     def _update_clock_bar(self) -> None:
         now = datetime.now()
-        date_str = now.strftime("%A %d %B %Y")
+        date_str = now.strftime("%A, %d %B %Y")
         time_str = now.strftime("%H:%M:%S")
-        refresh_str = f"↻ {self._countdown}s"
         self.query_one("#clock_bar").update(
             f"[{theme.MUTED}]{date_str}[/{theme.MUTED}]"
             f"   [{theme.ACCENT}]{time_str}[/{theme.ACCENT}]"
-            f"   [{theme.MUTED}]{refresh_str}[/{theme.MUTED}]"
         )
+
+    def _update_data_age_bar(self) -> None:
+        elapsed = _REFRESH_INTERVAL - self._countdown
+        ratio = elapsed / _REFRESH_INTERVAL
+        bar_width = 24
+        filled = round(ratio * bar_width)
+        bar = (
+            f"[{theme.MUTED}]{'█' * filled}[/{theme.MUTED}]"
+            f"[{theme.BORDER_DIM}]{'░' * (bar_width - filled)}[/{theme.BORDER_DIM}]"
+        )
+        age_str = f"{elapsed}s ago" if elapsed > 0 else "just updated"
+        try:
+            self.query_one("#scan_bar").update(
+                f"\n  [{theme.MUTED}]DATA AGE  {bar}  {age_str}[/{theme.MUTED}]"
+            )
+        except Exception:
+            pass
 
     # ── Events ────────────────────────────────────────────────────────────────
 
@@ -161,19 +205,23 @@ class HomeScreen(Screen):
             mongodb_ok = backend.get("components", {}).get("mongodb") == "connected"
             rust_ok = rust.get("status") == "ok"
 
-            def _badge(ok: bool, yes: str, no: str) -> str:
+            def _row(label: str, ok: bool, ok_text: str, err_text: str) -> str:
+                dot = "●" if ok else "○"
                 c = theme.LOW if ok else theme.CRITICAL
-                icon = "✓" if ok else "✗"
-                return f"[{c}]{icon} {yes if ok else no}[/{c}]"
+                return (
+                    f"  [{c}]{dot}[/{c}]"
+                    f"  [{theme.TEXT}]{label:<14}[/{theme.TEXT}]"
+                    f"[{c}]{ok_text if ok else err_text}[/{c}]"
+                )
 
             self.query_one("#backend_status").update(
-                f"Backend:     {_badge(backend_ok, 'Connected', 'Unavailable')}"
+                _row("Backend", backend_ok, "ONLINE", "OFFLINE")
             )
             self.query_one("#mongodb_status").update(
-                f"MongoDB:     {_badge(mongodb_ok, 'Connected', 'Disconnected')}"
+                _row("MongoDB", mongodb_ok, "CONNECTED", "DISCONNECTED")
             )
             self.query_one("#rust_status").update(
-                f"Rust Engine: {_badge(rust_ok, 'Ready', 'Unreachable')}"
+                _row("Rust Engine", rust_ok, "READY", "UNREACHABLE")
             )
 
             if backend_ok:
@@ -184,25 +232,50 @@ class HomeScreen(Screen):
                     high_risks = stats.get("high_risks", 0)
                     last_run = stats.get("last_pipeline_run")
 
-                    self.query_one("#unprocessed").update(
-                        f"Unprocessed asteroids: [{theme.ACCENT}]{unprocessed}[/{theme.ACCENT}]"
+                    self.query_one("#stat_unprocessed").update(
+                        f"  [{theme.ACCENT}]{unprocessed:>5}[/{theme.ACCENT}]"
+                        f"  [{theme.MUTED}]unprocessed[/{theme.MUTED}]"
                     )
-                    self.query_one("#analyzed_today").update(
-                        f"Analyzed today: [{theme.ACCENT}]{analyzed_today}[/{theme.ACCENT}]"
+                    self.query_one("#stat_analyzed").update(
+                        f"  [{theme.LOW}]{analyzed_today:>5}[/{theme.LOW}]"
+                        f"  [{theme.MUTED}]analyzed today[/{theme.MUTED}]"
                     )
-                    self.query_one("#high_risks").update(
-                        f"High/Critical risks: "
-                        + (f"[{theme.CRITICAL}]{high_risks}[/{theme.CRITICAL}]" if high_risks > 0
-                           else f"[{theme.LOW}]{high_risks}[/{theme.LOW}]")
+                    risk_color = theme.CRITICAL if high_risks > 0 else theme.LOW
+                    self.query_one("#stat_risks").update(
+                        f"  [{risk_color}]{high_risks:>5}[/{risk_color}]"
+                        f"  [{theme.MUTED}]high / critical risks[/{theme.MUTED}]"
                     )
+
                     if last_run:
                         try:
                             dt = datetime.fromisoformat(last_run.replace("Z", "+00:00"))
-                            self.query_one("#last_run").update(
-                                f"Last pipeline run: {dt.astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
-                            )
+                            lr_str = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
                         except Exception:
-                            self.query_one("#last_run").update(f"Last pipeline run: {last_run}")
+                            lr_str = last_run
+                    else:
+                        lr_str = "never"
+                    self.query_one("#stat_lastrun").update(
+                        f"  [{theme.MUTED}]last run[/{theme.MUTED}]"
+                        f"  [{theme.ACCENT}]{lr_str}[/{theme.ACCENT}]"
+                    )
+
+                    ratio = min(high_risks / max(analyzed_today, 1), 1.0)
+                    bar_width = 24
+                    filled = round(ratio * bar_width)
+                    if ratio > 0.3:
+                        bar_color, threat_label = theme.CRITICAL, "CRITICAL"
+                    elif ratio > 0.1:
+                        bar_color, threat_label = theme.MEDIUM, "ELEVATED"
+                    else:
+                        bar_color, threat_label = theme.LOW, "NOMINAL"
+                    bar_filled = f"[{bar_color}]{'█' * filled}[/{bar_color}]"
+                    bar_empty = f"[{theme.MUTED}]{'░' * (bar_width - filled)}[/{theme.MUTED}]"
+                    pct = f"{ratio * 100:.0f}%"
+                    self.query_one("#risk_bar").update(
+                        f"\n"
+                        f"  [{theme.MUTED}]THREAT LEVEL[/{theme.MUTED}]\n"
+                        f"  {bar_filled}{bar_empty}  [{bar_color}]{pct}  {threat_label}[/{bar_color}]"
+                    )
 
         except Exception as e:
             logger.error(f"Failed to refresh system status: {e}")
