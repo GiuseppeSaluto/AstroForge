@@ -1,11 +1,12 @@
 import asyncio
 import logging
+from collections import deque
 from datetime import datetime
 
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import Static
+from textual.widgets import Rule, Sparkline, Static
 from textual import work
 
 from app.client.api_client import get_system_status, get_pipeline_stats
@@ -40,6 +41,22 @@ class StatusPanel(Widget):
         text-style: bold;
         margin: 0 0 1 0;
     }
+
+    StatusPanel Rule {
+        color: $border_dim;
+        margin: 1 0;
+    }
+
+    StatusPanel .sp-trend-label {
+        color: $muted;
+        height: 1;
+        margin: 0 0 0 0;
+    }
+
+    StatusPanel Sparkline {
+        height: 3;
+        margin: 0 0 0 2;
+    }
     """)
 
     _countdown: int = _REFRESH_INTERVAL
@@ -49,20 +66,21 @@ class StatusPanel(Widget):
         yield Static("", id="sp_backend")
         yield Static("", id="sp_mongodb")
         yield Static("", id="sp_rust")
-        yield Static("", id="sp_separator")
+        yield Rule(line_style="dashed")
         yield Static("", id="sp_unprocessed")
         yield Static("", id="sp_analyzed")
         yield Static("", id="sp_risks")
         yield Static("", id="sp_lastrun")
         yield Static("", id="sp_risk_bar")
         yield Static("", id="sp_age_bar")
+        yield Rule(line_style="dashed")
+        yield Static("", id="sp_trend_label", classes="sp-trend-label")
+        yield Sparkline([], id="sp_sparkline", min_color=theme.LOW, max_color=theme.CRITICAL)
 
     def on_mount(self) -> None:
+        self._risk_history: deque[float] = deque(maxlen=30)
         self.query_one("#sp_title", Static).update(
-            f"[{theme.ACCENT}]── SYSTEM STATUS  /  MISSION STATS[/{theme.ACCENT}]"
-        )
-        self.query_one("#sp_separator", Static).update(
-            f"[{theme.BORDER_DIM}]  {'─' * 28}[/{theme.BORDER_DIM}]"
+            f"[{theme.ACCENT}]SYSTEM STATUS  ·  MISSION STATS[/{theme.ACCENT}]"
         )
         self._update_age_bar()
         self.refresh_data()
@@ -197,6 +215,13 @@ class StatusPanel(Widget):
                     f"  {bar}"
                     f"  [{bar_color}]{ratio * 100:.0f}%  {threat_label}[/{bar_color}]"
                 )
+
+                self._risk_history.append(ratio)
+                n = len(self._risk_history)
+                self.query_one("#sp_trend_label", Static).update(
+                    f"  [{theme.MUTED}]RISK TREND  ({n} sample{'s' if n != 1 else ''})[/{theme.MUTED}]"
+                )
+                self.query_one("#sp_sparkline", Sparkline).data = list(self._risk_history)
 
         except Exception as e:
             logger.error(f"StatusPanel refresh failed: {e}")

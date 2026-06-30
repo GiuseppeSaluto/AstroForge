@@ -40,7 +40,7 @@ class TopThreatsPanel(Widget):
 
     def on_mount(self) -> None:
         self.query_one("#tp_title", Static).update(
-            f"[{theme.ACCENT}]── TOP THREATS  ─  Rust Engine Output[/{theme.ACCENT}]"
+            f"[{theme.ACCENT}]TOP THREATS  ·  Rust Engine Output[/{theme.ACCENT}]"
         )
         self.refresh_data()
 
