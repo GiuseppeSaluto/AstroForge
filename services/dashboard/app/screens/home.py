@@ -1,7 +1,7 @@
 import logging
 from textual.screen import Screen
 from textual.widgets import Static, Button
-from textual.containers import Horizontal, Grid
+from textual.containers import Horizontal, Grid, Vertical
 from textual import work
 from datetime import datetime
 import asyncio
@@ -9,6 +9,7 @@ import asyncio
 from app.client.api_client import run_pipeline
 from app.widgets.status_panel import StatusPanel
 from app.widgets.threats_panel import TopThreatsPanel
+from app.widgets.close_approaches_panel import CloseApproachesPanel
 from app import theme
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,20 @@ class HomeScreen(Screen):
         margin: 1 2 0 2;
     }
 
+    #right_column {
+        layout: vertical;
+        height: 1fr;
+        grid-gutter: 1;
+    }
+
+    #right_column TopThreatsPanel {
+        height: 1fr;
+    }
+
+    #right_column CloseApproachesPanel {
+        height: 1fr;
+    }
+
     #quick_actions {
         height: 3;
         margin: 1 2;
@@ -74,7 +89,9 @@ class HomeScreen(Screen):
 
         with Grid(id="main_grid"):
             yield StatusPanel(id="status_panel")
-            yield TopThreatsPanel(id="threats_panel")
+            with Vertical(id="right_column"):
+                yield TopThreatsPanel(id="threats_panel")
+                yield CloseApproachesPanel(id="close_approaches_panel")
 
         with Horizontal(id="quick_actions"):
             yield Button("▶  Run Pipeline", id="run_pipeline", variant="primary")

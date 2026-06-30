@@ -152,6 +152,21 @@ def get_analyzed_asteroids(
         logger.error(f"Failed to get analyzed asteroids: {e}")
         return []
 
+def get_close_approaches(limit: int = 10) -> List[Dict[str, Any]]:
+    """Get NEOs sorted by miss distance, enriched with Rust Engine risk data."""
+    try:
+        response = _session.get(
+            f"{API_BASE_URL}/pipeline/close-approaches",
+            params={"limit": limit},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to get close approaches: {e}")
+        return []
+
+
 def get_logs(limit: int = 100) -> List[Dict[str, Any]]:
     """Get recent logs from Python API."""
     try:

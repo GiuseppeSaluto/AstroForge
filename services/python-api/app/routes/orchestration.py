@@ -206,6 +206,62 @@ def pipeline_stats():
         logger.error(f"Failed to compute pipeline stats: {e}")
         return jsonify({"status": "error", "details": str(e)}), 500
 
+@orchestration_bp.route("/close-approaches", methods=["GET"])
+def close_approaches():
+    """NEOs sorted by miss distance, enriched with risk data from the Rust Engine."""
+    limit = request.args.get("limit", default=10, type=int)
+    mongo = current_app.extensions.get("mongo")
+    if not mongo:
+        return jsonify({"status": "error", "reason": "MongoDB not initialized"}), 500
+
+    try:
+        pipeline = [
+            {"$unwind": "$asteroid.close_approach_data"},
+            {
+                "$lookup": {
+                    "from": "asteroid_analyses",
+                    "localField": "asteroid.id",
+                    "foreignField": "neo_reference_id",
+                    "as": "analysis",
+                }
+            },
+            {
+                "$project": {
+                    "name": "$asteroid.name",
+                    "is_hazardous": "$asteroid.is_potentially_hazardous_asteroid",
+                    "close_approach_date": "$asteroid.close_approach_data.close_approach_date",
+                    "miss_km": {"$toDouble": "$asteroid.close_approach_data.miss_distance.kilometers"},
+                    "velocity_kps": {"$toDouble": "$asteroid.close_approach_data.relative_velocity.kilometers_per_second"},
+                    "risk_level": {"$arrayElemAt": ["$analysis.risk_data.risk_level", 0]},
+                    "risk_score": {"$arrayElemAt": ["$analysis.risk_data.risk_score_0_to_100", 0]},
+                    "diameter_km": {"$arrayElemAt": ["$analysis.risk_data.diameter_km", 0]},
+                }
+            },
+            {"$sort": {"miss_km": 1}},
+            {"$limit": limit},
+        ]
+
+        results = list(mongo.db["asteroids_raw"].aggregate(pipeline))
+
+        return jsonify([
+            {
+                "name": r.get("name", "?"),
+                "is_hazardous": r.get("is_hazardous", False),
+                "close_approach_date": r.get("close_approach_date", ""),
+                "miss_km": round(r.get("miss_km") or 0.0),
+                "velocity_kps": round(r.get("velocity_kps") or 0.0, 2),
+                "risk_level": r.get("risk_level") or "Unknown",
+                "risk_score": round(r.get("risk_score") or 0.0, 1),
+                "diameter_km": round(r.get("diameter_km") or 0.0, 4),
+            }
+            for r in results
+        ]), 200
+
+    except Exception as e:
+        logger.error(f"Failed to get close approaches: {e}")
+        return jsonify({"status": "error", "details": str(e)}), 500
+
+
 @orchestration_bp.route("/analysis/asteroids", methods=["GET"])
 def list_analyzed_asteroids():
 
