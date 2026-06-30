@@ -38,6 +38,16 @@ class StatusPanel(Widget):
     StatusPanel .sp-title {
         color: $accent;
         text-style: bold;
+        margin: 0 0 2 0;
+    }
+
+    StatusPanel .sp-service {
+        height: 1;
+        margin: 0 0 1 0;
+    }
+
+    StatusPanel .sp-stat {
+        height: 1;
         margin: 0 0 1 0;
     }
 
@@ -51,14 +61,15 @@ class StatusPanel(Widget):
 
     def compose(self) -> ComposeResult:
         yield Static("", id="sp_title", classes="sp-title")
-        yield Static("", id="sp_backend")
-        yield Static("", id="sp_mongodb")
-        yield Static("", id="sp_rust")
+        yield Static("", id="sp_backend", classes="sp-service")
+        yield Static("", id="sp_mongodb", classes="sp-service")
+        yield Static("", id="sp_rust", classes="sp-service")
         yield Rule(line_style="dashed")
-        yield Static("", id="sp_unprocessed")
-        yield Static("", id="sp_analyzed")
-        yield Static("", id="sp_risks")
-        yield Static("", id="sp_lastrun")
+        yield Static("", id="sp_unprocessed", classes="sp-stat")
+        yield Static("", id="sp_analyzed", classes="sp-stat")
+        yield Static("", id="sp_risks", classes="sp-stat")
+        yield Static("", id="sp_lastrun", classes="sp-stat")
+        yield Rule(line_style="dashed")
         yield Static("", id="sp_risk_bar")
         yield Static("", id="sp_age_bar")
 
@@ -195,7 +206,7 @@ class StatusPanel(Widget):
                 bar = self._render_bar(ratio, bar_color)
                 label = f"{'THREAT LVL':<{_BAR_LABEL_W}}"
                 self.query_one("#sp_risk_bar").update(
-                    f"\n  [{theme.MUTED}]{label}[/{theme.MUTED}]"
+                    f"  [{theme.MUTED}]{label}[/{theme.MUTED}]"
                     f"  {bar}"
                     f"  [{bar_color}]{ratio * 100:.0f}%  {threat_label}[/{bar_color}]"
                 )
