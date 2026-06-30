@@ -152,6 +152,7 @@ class StatusPanel(Widget):
             if stats.get("status") != "error":
                 unprocessed = stats.get("unprocessed", 0)
                 analyzed_today = stats.get("analyzed_today", 0)
+                total_analyzed = stats.get("total_analyzed", 0)
                 high_risks = stats.get("high_risks", 0)
                 last_run = stats.get("last_pipeline_run")
 
@@ -182,7 +183,7 @@ class StatusPanel(Widget):
                     f"  [{theme.ACCENT}]{lr_str}[/{theme.ACCENT}]"
                 )
 
-                ratio = min(high_risks / max(analyzed_today, 1), 1.0)
+                ratio = high_risks / max(total_analyzed, 1)
                 if ratio > 0.3:
                     bar_color, threat_label = theme.CRITICAL, "CRITICAL"
                 elif ratio > 0.1:

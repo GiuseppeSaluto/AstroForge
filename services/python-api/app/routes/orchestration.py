@@ -184,6 +184,8 @@ def pipeline_stats():
             "risk_data.risk_level": {"$in": ["High", "Critical"]}
         })
 
+        total_analyzed = analysis_collection.count_documents({})
+
         last_run = analysis_collection.find_one(
             sort=[("analysis_timestamp", -1)]
         )
@@ -192,6 +194,7 @@ def pipeline_stats():
             "status": "ok",
             "unprocessed": unprocessed_count,
             "analyzed_today": analyzed_today,
+            "total_analyzed": total_analyzed,
             "high_risks": high_risk_count,
             "last_pipeline_run": (
                 last_run["analysis_timestamp"].isoformat()
