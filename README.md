@@ -1,4 +1,4 @@
-# AstroForge
+# AstroForge ☄️
 
 Backend system for tracking and analyzing Near-Earth Objects using real NASA data.
 Ingests NEO data, processes it through a Rust risk-analysis engine, persists results to MongoDB,
