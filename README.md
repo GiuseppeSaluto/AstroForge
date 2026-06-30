@@ -445,4 +445,4 @@ Copy `infra/env/python.env.example` → `infra/env/python.env` and fill in value
 
 ## License
 
-No license — challenge submission only.
+Licensed under the MIT License — see LICENSE for details
