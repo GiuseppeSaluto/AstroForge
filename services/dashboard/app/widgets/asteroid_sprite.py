@@ -1,15 +1,5 @@
-from rich.style import Style
 from rich.text import Text
 from textual.widget import Widget
-
-from app import theme
-
-_RISK_STYLE: dict[str, str] = {
-    "Low":      theme.LOW,
-    "Medium":   theme.MEDIUM,
-    "High":     theme.HIGH,
-    "Critical": theme.CRITICAL,
-}
 
 _ASCII_FRAMES: dict[str, list[str]] = {
     "Low": [
@@ -89,7 +79,6 @@ class AsteroidSprite(Widget):
     def __init__(self, risk_level: str) -> None:
         super().__init__()
         self._frames = _ASCII_FRAMES.get(risk_level, _FALLBACK)
-        self._style = Style(color=_RISK_STYLE.get(risk_level, theme.MUTED))
         self._idx = 0
 
     def on_mount(self) -> None:
@@ -100,6 +89,4 @@ class AsteroidSprite(Widget):
         self.refresh()
 
     def render(self) -> Text:
-        t = Text(self._frames[self._idx], no_wrap=True)
-        t.stylize(self._style)
-        return t
+        return Text(self._frames[self._idx], no_wrap=True)
