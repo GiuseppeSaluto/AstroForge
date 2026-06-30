@@ -8,6 +8,7 @@ from textual.worker import WorkerCancelled
 from textual import work
 
 from app.client.api_client import get_asteroid_detail
+from app.widgets.asteroid_sprite import AsteroidSprite
 from app import theme
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,13 @@ class AsteroidDetailScreen(ModalScreen):
 
     #col_physical {
         width: 1fr;
+        margin-right: 2;
+    }
+
+    #col_sprite {
+        width: 22;
+        height: auto;
+        align: center middle;
     }
 
     .data-line {
@@ -157,6 +165,9 @@ class AsteroidDetailScreen(ModalScreen):
                         yield Static("Loading…", id="diameter_range", classes="data-line")
                         yield Static(f"Distance:  {a.get('distance_km', 0):,.0f} km", classes="data-line")
                         yield Static(f"Velocity:  {a.get('velocity_kps', 0):.2f} km/s", classes="data-line")
+
+                    with Vertical(id="col_sprite"):
+                        yield AsteroidSprite(risk_level)
 
                 yield Rule(line_style="dashed")
 
