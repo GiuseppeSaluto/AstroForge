@@ -1,4 +1,5 @@
 import logging
+import webbrowser
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.screen import ModalScreen
@@ -98,13 +99,25 @@ class AsteroidDetailScreen(ModalScreen):
     #close_btn {
         width: 14;
     }
+
+    #columns {
+        height: auto;
+    }
+
+    #col_risk, #col_physical {
+        height: auto;
+    }
     """)
 
-    BINDINGS = [("escape", "dismiss", "Close")]
+    BINDINGS = [
+        ("escape", "dismiss", "Close"),
+        ("j", "open_jpl", "Open JPL"),
+    ]
 
     def __init__(self, asteroid: dict) -> None:
         super().__init__()
         self._asteroid = asteroid
+        self._jpl_url: str = ""
 
     def compose(self) -> ComposeResult:
         a = self._asteroid
@@ -126,7 +139,7 @@ class AsteroidDetailScreen(ModalScreen):
             yield Static(f"{name}{haz_badge}", id="header")
 
             with ScrollableContainer():
-                with Horizontal():
+                with Horizontal(id="columns"):
                     with Vertical(id="col_risk"):
                         yield Static("RISK ANALYSIS", classes="section-title")
                         yield Static(
@@ -169,6 +182,10 @@ class AsteroidDetailScreen(ModalScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close_btn":
             self.dismiss()
+
+    def action_open_jpl(self) -> None:
+        if self._jpl_url:
+            webbrowser.open(self._jpl_url)
 
     def _safe_update(self, widget_id: str, content: str) -> None:
         try:
@@ -244,7 +261,11 @@ class AsteroidDetailScreen(ModalScreen):
 
             jpl = data.get("nasa_jpl_url", "")
             if jpl:
-                self._safe_update("#jpl_link", f"JPL: {jpl}")
+                self._jpl_url = jpl
+                self._safe_update(
+                    "#jpl_link",
+                    f"[{theme.MUTED}]JPL: {jpl}  (j to open)[/{theme.MUTED}]",
+                )
 
         except WorkerCancelled:
             pass  # Modal dismissed before NASA data arrived — no action needed
