@@ -28,6 +28,7 @@ class CloseApproachesPanel(Widget):
     CloseApproachesPanel .ca-title {
         color: $accent;
         text-style: bold;
+        text-align: center;
         margin: 0 0 1 0;
     }
     """)

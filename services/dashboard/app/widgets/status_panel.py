@@ -38,6 +38,7 @@ class StatusPanel(Widget):
     StatusPanel .sp-title {
         color: $accent;
         text-style: bold;
+        text-align: center;
         margin: 0 0 2 0;
     }
 

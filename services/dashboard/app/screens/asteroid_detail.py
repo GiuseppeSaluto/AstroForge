@@ -2,7 +2,7 @@ import logging
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Static
+from textual.widgets import Button, DataTable, Rule, Static
 from textual.worker import WorkerCancelled
 from textual import work
 
@@ -41,8 +41,8 @@ class AsteroidDetailScreen(ModalScreen):
     .section-title {
         color: $accent;
         text-style: bold;
-        margin: 1 0 0 0;
         height: 1;
+        margin: 0 0 1 0;
     }
 
     #col_risk {
@@ -62,16 +62,19 @@ class AsteroidDetailScreen(ModalScreen):
     #approaches_table {
         max-height: 10;
         border: solid $border_dim;
-        margin: 0 0 0 0;
     }
 
     #nasa_status {
         height: 1;
         color: $muted;
-        margin: 0 0 0 0;
     }
 
-    #orbital_info {
+    #orbital_class {
+        height: 1;
+        color: $text;
+    }
+
+    #orbital_params {
         height: 1;
         color: $text;
     }
@@ -79,19 +82,21 @@ class AsteroidDetailScreen(ModalScreen):
     #jpl_link {
         height: 1;
         color: $muted;
-        margin-top: 0;
     }
 
-    #close_btn {
-        margin-top: 1;
-        width: 14;
-        align-horizontal: center;
+    #dialog Rule {
+        color: $border_dim;
+        margin: 1 0;
     }
 
     #btn_row {
         height: auto;
         align-horizontal: center;
         margin-top: 1;
+    }
+
+    #close_btn {
+        width: 14;
     }
     """)
 
@@ -109,40 +114,50 @@ class AsteroidDetailScreen(ModalScreen):
         risk_color = _RISK_COLOR.get(risk_level, "white")
 
         haz_badge = "   [red]⚠ POTENTIALLY HAZARDOUS[/red]" if hazardous else ""
-        header_text = f"{name}{haz_badge}"
+        haz_text  = (
+            f"[{theme.CRITICAL}]Yes[/{theme.CRITICAL}]"
+            if hazardous else
+            f"[{theme.LOW}]No[/{theme.LOW}]"
+        )
 
         analyzed_at = str(a.get("analyzed_at", "--"))[:10]
 
         with Vertical(id="dialog"):
-            yield Static(header_text, id="header")
+            yield Static(f"{name}{haz_badge}", id="header")
 
             with ScrollableContainer():
                 with Horizontal():
                     with Vertical(id="col_risk"):
-                        yield Static("── RISK ANALYSIS ──", classes="section-title")
+                        yield Static("RISK ANALYSIS", classes="section-title")
                         yield Static(
-                            f"Level:    [{risk_color}]{risk_level}[/{risk_color}]",
+                            f"Level:     [{risk_color}]{risk_level}[/{risk_color}]",
                             classes="data-line",
                         )
-                        yield Static(f"Score:    {a.get('risk_score', 0):.1f} / 100", classes="data-line")
-                        yield Static(f"Energy:   {a.get('energy_mt', 0):.3f} MT", classes="data-line")
-                        yield Static(f"Analyzed: {analyzed_at}", classes="data-line")
+                        yield Static(f"Score:     {a.get('risk_score', 0):.1f} / 100", classes="data-line")
+                        yield Static(f"Energy:    {a.get('energy_mt', 0):.3f} MT", classes="data-line")
+                        yield Static(f"Hazardous: {haz_text}", classes="data-line")
+                        yield Static(f"Analyzed:  {analyzed_at}", classes="data-line")
 
                     with Vertical(id="col_physical"):
-                        yield Static("── PHYSICAL DATA ──", classes="section-title")
-                        yield Static(f"Diameter: {a.get('diameter_km', 0):.4f} km", classes="data-line")
-                        yield Static(f"Distance: {a.get('distance_km', 0):,.0f} km", classes="data-line")
-                        yield Static(f"Velocity: {a.get('velocity_kps', 0):.2f} km/s", classes="data-line")
+                        yield Static("PHYSICAL DATA", classes="section-title")
+                        yield Static(f"Diameter:  {a.get('diameter_km', 0):.4f} km", classes="data-line")
                         yield Static("Loading…", id="diameter_range", classes="data-line")
+                        yield Static(f"Distance:  {a.get('distance_km', 0):,.0f} km", classes="data-line")
+                        yield Static(f"Velocity:  {a.get('velocity_kps', 0):.2f} km/s", classes="data-line")
 
-                yield Static("── CLOSE APPROACHES ──", classes="section-title")
+                yield Rule(line_style="dashed")
+
+                yield Static("CLOSE APPROACHES", classes="section-title")
                 approaches_table = DataTable(id="approaches_table")
                 approaches_table.add_columns("Date", "Distance (km)", "Velocity (km/s)", "Body")
                 yield approaches_table
                 yield Static(f"[{theme.MEDIUM}]Fetching NASA data…[/{theme.MEDIUM}]", id="nasa_status")
 
-                yield Static("── ORBITAL DATA ──", classes="section-title")
-                yield Static("Loading…", id="orbital_info", classes="data-line")
+                yield Rule(line_style="dashed")
+
+                yield Static("ORBITAL DATA", classes="section-title")
+                yield Static("Loading…", id="orbital_class", classes="data-line")
+                yield Static("", id="orbital_params", classes="data-line")
                 yield Static("", id="jpl_link")
 
             with Horizontal(id="btn_row"):
@@ -156,7 +171,6 @@ class AsteroidDetailScreen(ModalScreen):
             self.dismiss()
 
     def _safe_update(self, widget_id: str, content: str) -> None:
-        """Update a widget only if the screen is still mounted."""
         try:
             self.query_one(widget_id).update(content)
         except Exception:
@@ -187,7 +201,7 @@ class AsteroidDetailScreen(ModalScreen):
             d_min = diam.get("km_min")
             d_max = diam.get("km_max")
             if d_min is not None and d_max is not None:
-                self._safe_update("#diameter_range", f"Range:    {d_min:.4f} – {d_max:.4f} km")
+                self._safe_update("#diameter_range", f"Range:     {d_min:.4f} – {d_max:.4f} km")
             else:
                 self._safe_update("#diameter_range", "")
 
@@ -211,21 +225,22 @@ class AsteroidDetailScreen(ModalScreen):
                 f"[{theme.LOW}]{len(approaches)} total approaches — showing {len(recent)} most recent[/{theme.LOW}]",
             )
 
-            # Orbital data
+            # Orbital data — split across two lines for readability
             orb = data.get("orbital_data", {})
             if orb:
-                parts = []
-                if orb.get("orbit_class"):
-                    parts.append(f"Class: {orb['orbit_class']}")
+                orbit_class = orb.get("orbit_class", "")
+                self._safe_update("#orbital_class", f"Class:   {orbit_class}" if orbit_class else "")
+
+                params = []
                 if orb.get("orbital_period"):
-                    parts.append(f"Period: {float(orb['orbital_period']):.1f} d")
+                    params.append(f"Period: {float(orb['orbital_period']):.1f} d")
                 if orb.get("eccentricity"):
-                    parts.append(f"Ecc: {orb['eccentricity']}")
+                    params.append(f"Ecc: {float(orb['eccentricity']):.4f}")
                 if orb.get("inclination"):
-                    parts.append(f"Incl: {float(orb['inclination']):.2f}°")
-                self._safe_update("#orbital_info", "  |  ".join(parts))
+                    params.append(f"Incl: {float(orb['inclination']):.2f}°")
+                self._safe_update("#orbital_params", "   │   ".join(params))
             else:
-                self._safe_update("#orbital_info", f"[{theme.MUTED}]Orbital data not available[/{theme.MUTED}]")
+                self._safe_update("#orbital_class", f"[{theme.MUTED}]Orbital data not available[/{theme.MUTED}]")
 
             jpl = data.get("nasa_jpl_url", "")
             if jpl:
