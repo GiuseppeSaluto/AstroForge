@@ -16,9 +16,12 @@ RUN touch src/main.rs && cargo build --release
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m -u 1000 appuser
 
 COPY --from=builder /app/target/release/rust-engine /usr/local/bin/rust-engine
+
+USER appuser
 
 EXPOSE 8080
 

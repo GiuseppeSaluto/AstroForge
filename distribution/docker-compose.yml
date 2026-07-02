@@ -1,0 +1,81 @@
+services:
+
+  mongodb:
+    image: mongo:7.0
+    container_name: astroforge-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - astroforge-net
+
+  rust-engine:
+    image: giuseppesaluto/astroforge-rust-engine:latest
+    container_name: astroforge-rust-engine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - astroforge-net
+
+  python-api:
+    image: giuseppesaluto/astroforge-python-api:latest
+    container_name: astroforge-python-api
+    restart: unless-stopped
+    environment:
+      # NASA_API_KEY pubblica "DEMO_KEY": nessuna registrazione richiesta,
+      # limitata a 30 richieste/ora e 50/giorno per IP - sufficiente per una demo.
+      - NASA_API_KEY=DEMO_KEY
+      - RUST_ENGINE_URL=http://rust-engine:8080
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB=astroforge_db
+      - LOG_DIRECTORY=/app/storage/logs
+      - DEBUG=false
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rust-engine:
+        condition: service_healthy
+    volumes:
+      - api-logs:/app/storage/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/pipeline/status"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - astroforge-net
+
+  # Interfaccia a terminale (TUI): non parte con "docker compose up",
+  # viene avviata a comando dagli script avvia.* con "docker compose run".
+  dashboard:
+    image: giuseppesaluto/astroforge-dashboard:latest
+    container_name: astroforge-dashboard
+    profiles: ["dashboard"]
+    environment:
+      - API_BASE_URL=http://python-api:5001
+      - RUST_ENGINE_URL=http://rust-engine:8080
+    depends_on:
+      python-api:
+        condition: service_healthy
+    networks:
+      - astroforge-net
+
+volumes:
+  mongo-data:
+  api-logs:
+
+networks:
+  astroforge-net:
+    driver: bridge
