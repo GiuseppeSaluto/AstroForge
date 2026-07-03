@@ -25,3 +25,10 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8.7"
 
+# .env file loading (mirrors python-dotenv used in python-api)
+dotenvy = "0.15"
+
+[dev-dependencies]
+# Drives the Axum router directly in tests without opening a real socket
+tower = { version = "0.5", features = ["util"] }
+

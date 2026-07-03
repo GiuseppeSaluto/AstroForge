@@ -100,3 +100,111 @@ pub async fn process_asteroid_batch(Json(dtos): Json<Vec<AsteroidDTO>>) -> impl 
 
     (StatusCode::OK, Json(results)).into_response()
 }
+
+// ── Integration tests ──────────────────────────────────────────────────────
+//
+// Unlike the unit tests in `logic/impact_energy.rs` and `domain/asteroid.rs`
+// (which call plain functions), these drive the actual Axum `Router` with
+// real HTTP requests via `tower::ServiceExt::oneshot`. No TCP socket is
+// opened — the request is passed straight into the router in-process.
+#[cfg(test)]
+mod integration_tests {
+    use crate::api::router;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    fn valid_asteroid_json() -> serde_json::Value {
+        serde_json::json!({
+            "id": "12345",
+            "name": "Test Asteroid",
+            "absolute_magnitude_h": 20.0,
+            "diameter_min_km": 0.1,
+            "diameter_max_km": 0.5,
+            "diameter_avg_km": 0.3,
+            "close_approach_date": "2025-01-01",
+            "relative_velocity_kps": 10.0,
+            "miss_distance_km": 100_000.0,
+            "orbiting_body": "Earth",
+            "is_potentially_hazardous": false
+        })
+    }
+
+    fn post_request(uri: &str, body: serde_json::Value) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn health_check_returns_ok() {
+        let request = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn process_asteroid_returns_200_for_valid_payload() {
+        let request = post_request("/process/asteroid", valid_asteroid_json());
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn process_asteroid_returns_400_for_invalid_diameter() {
+        let mut payload = valid_asteroid_json();
+        payload["diameter_avg_km"] = serde_json::json!(-1.0);
+        let request = post_request("/process/asteroid", payload);
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn process_batch_rejects_empty_batch() {
+        let request = post_request("/process/batch", serde_json::json!([]));
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn process_batch_rejects_batch_over_500() {
+        let batch: Vec<_> = (0..501)
+            .map(|i| {
+                let mut a = valid_asteroid_json();
+                a["id"] = serde_json::json!(i.to_string());
+                a
+            })
+            .collect();
+        let request = post_request("/process/batch", serde_json::json!(batch));
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn process_batch_skips_invalid_entries_but_processes_valid_ones() {
+        let mut invalid = valid_asteroid_json();
+        invalid["diameter_avg_km"] = serde_json::json!(-1.0);
+        let batch = serde_json::json!([valid_asteroid_json(), invalid]);
+        let request = post_request("/process/batch", batch);
+
+        let response = router().oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}
