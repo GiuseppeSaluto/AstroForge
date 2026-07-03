@@ -9,7 +9,7 @@ use crate::logic::impact_energy::{AsteroidDensity, ImpactPhysics};
 
 fn compute_risk(asteroid: &Asteroid) -> RiskResult {
     let volume_m3 = ImpactPhysics::volume_from_diameter_km(asteroid.diameter_km);
-    let mass = ImpactPhysics::mass_from_volume(volume_m3, AsteroidDensity::SType);
+    let mass = ImpactPhysics::mass_from_volume(volume_m3, AsteroidDensity::Silicaceous);
     let energy_joules = ImpactPhysics::kinetic_energy_joules(mass, asteroid.velocity_kps);
     let energy_megatons = ImpactPhysics::joules_to_megatons(energy_joules);
 

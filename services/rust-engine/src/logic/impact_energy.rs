@@ -4,17 +4,17 @@ use std::f64::consts::PI;
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum AsteroidDensity {
-    CType, // Carbonaceous  ~1300 kg/m³
-    SType, // Silicaceous   ~2700 kg/m³  (NEO default)
-    MType, // Metallic      ~5300 kg/m³
+    Carbonaceous, // ~1300 kg/m³
+    Silicaceous,  // ~2700 kg/m³ (NEO default)
+    Metallic,     // ~5300 kg/m³
 }
 
 impl AsteroidDensity {
     pub fn as_value(&self) -> f64 {
         match self {
-            AsteroidDensity::CType => 1300.0,
-            AsteroidDensity::SType => 2700.0,
-            AsteroidDensity::MType => 5300.0,
+            AsteroidDensity::Carbonaceous => 1300.0,
+            AsteroidDensity::Silicaceous => 2700.0,
+            AsteroidDensity::Metallic => 5300.0,
         }
     }
 }
@@ -200,7 +200,7 @@ mod tests {
 
     fn kinetic_energy_for(diameter_km: f64, velocity_kps: f64) -> f64 {
         let vol = ImpactPhysics::volume_from_diameter_km(diameter_km);
-        let mass = ImpactPhysics::mass_from_volume(vol, AsteroidDensity::SType);
+        let mass = ImpactPhysics::mass_from_volume(vol, AsteroidDensity::Silicaceous);
         ImpactPhysics::kinetic_energy_joules(mass, velocity_kps)
     }
 }
