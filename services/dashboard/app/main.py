@@ -1,5 +1,6 @@
 from textual.app import App
 from textual.binding import Binding
+from textual.theme import Theme
 from textual.widgets import Header, Footer
 
 from app.screens.home import HomeScreen
@@ -8,6 +9,21 @@ from app.screens.charts import ChartsScreen
 from app.screens.pipeline import PipelineScreen
 from app.screens.logs import LogsScreen
 from app import theme
+
+VOID_THEME = Theme(
+    name="void",
+    primary=theme.ACCENT,
+    secondary=theme.MUTED,
+    accent=theme.ACCENT,
+    foreground=theme.TEXT,
+    background=theme.BG,
+    surface=theme.SURFACE,
+    panel=theme.SURFACE,
+    error=theme.CRITICAL,
+    warning=theme.HIGH,
+    success=theme.LOW,
+    dark=True,
+)
 
 
 class AstroForgeDashboard(App):
@@ -75,6 +91,8 @@ class AstroForgeDashboard(App):
 
     def on_mount(self) -> None:
         """Initialize the application and show home screen."""
+        self.register_theme(VOID_THEME)
+        self.theme = "void"
         self.push_screen("home")
 
     def action_show_home(self) -> None:
