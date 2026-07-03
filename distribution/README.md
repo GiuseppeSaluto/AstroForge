@@ -1,51 +1,51 @@
-# AstroForge — avvio rapido
+# AstroForge — quick start
 
-## 1. Installa Docker Desktop (una volta sola)
+## 1. Install Docker Desktop (one-time only)
 
-Scarica e installa da: https://www.docker.com/products/docker-desktop/
+Download and install from: https://www.docker.com/products/docker-desktop/
 
-Durante l'installazione lascia tutte le opzioni di default. Al termine, apri
-Docker Desktop e aspetta che l'icona nella barra in alto (Mac) o in basso a
-destra (Windows) smetta di muoversi: significa che è pronto.
+Keep all default options during installation. When it's done, open Docker
+Desktop and wait until the icon in the top bar (Mac) or bottom-right corner
+(Windows) stops moving: that means it's ready.
 
-## 2. Avvia AstroForge
+## 2. Start AstroForge
 
-Nella cartella `distribution`, fai doppio click sul file giusto per il tuo
-computer:
+In the `distribution` folder, double-click the file for your computer:
 
 - **Windows** → `avvia.bat`
 - **Mac** → `avvia.command`
 - **Linux** → `avvia.sh`
 
-Si aprirà una finestra nera (il terminale): è normale, mostra cosa sta
-succedendo. La prima volta impiega un paio di minuti per scaricare tutto;
-le volte successive è molto più veloce.
+A black window (the terminal) will open: that's normal, it shows what's
+happening. The first time it takes a couple of minutes to download
+everything; after that it's much faster.
 
-Quando è tutto pronto si aprirà la dashboard di AstroForge direttamente in
-quella finestra.
+Once everything is ready, the AstroForge dashboard will open directly in
+that window.
 
-## 3. Usa la dashboard
+## 3. Using the dashboard
 
-Tasti principali:
+Main keys:
 
-| Tasto | Cosa fa |
+| Key | What it does |
 |---|---|
 | `h` | Home |
-| `a` | Elenco asteroidi |
-| `c` | Grafici |
-| `p` | Avvia analisi |
-| `l` | Log |
-| `q` | Esci |
+| `a` | Asteroid list |
+| `c` | Charts |
+| `p` | Run analysis |
+| `l` | Logs |
+| `q` | Quit |
 
-## 4. Per chiudere tutto
+## 4. Shutting everything down
 
-Premi `q` nella dashboard: la finestra si occuperà da sola di spegnere tutti
-i servizi. Puoi anche chiudere semplicemente la finestra del terminale.
+Press `q` in the dashboard: the window will automatically shut down all
+the services. You can also just close the terminal window.
 
-## Problemi comuni
+## Common issues
 
-- **"Docker non è installato"**: torna al punto 1.
-- **La finestra si chiude subito con un errore**: assicurati che Docker
-  Desktop sia aperto e completamente avviato prima di lanciare lo script.
-- **Va tutto lentissimo la prima volta**: normale, sta scaricando le
-  immagini da internet. Serve una connessione decente.
+- **"Docker is not installed"**: go back to step 1.
+- **The window closes immediately with an error**: make sure Docker
+  Desktop is open and fully started before launching the script.
+- **Everything is very slow the first time**: that's normal, it's
+  downloading the images from the internet. You'll need a decent
+  connection.
