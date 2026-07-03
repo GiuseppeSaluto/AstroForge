@@ -16,18 +16,21 @@ fn compute_risk(asteroid: &Asteroid) -> RiskResult {
     let base_score = ImpactPhysics::risk_score_from_energy(energy_joules);
     let score = ImpactPhysics::apply_proximity_factor(base_score, asteroid.distance_km);
     let score = ImpactPhysics::apply_hazardous_bonus(score, asteroid.hazardous);
+    let risk_score_0_to_100 = score.clamp(0.0, 100.0);
+    let risk_level = RiskResult::compute_risk_level(risk_score_0_to_100);
 
-    RiskResult::new(
-        asteroid.id.clone(),
-        asteroid.name.clone(),
-        energy_joules,
-        energy_megatons,
-        score,
-        asteroid.hazardous,
-        asteroid.distance_km,
-        asteroid.velocity_kps,
-        asteroid.diameter_km,
-    )
+    RiskResult {
+        asteroid_id: asteroid.id.clone(),
+        asteroid_name: asteroid.name.clone(),
+        impact_energy_joules: energy_joules,
+        impact_energy_megatons: energy_megatons,
+        risk_level,
+        risk_score_0_to_100,
+        is_potentially_hazardous: asteroid.hazardous,
+        miss_distance_km: asteroid.distance_km,
+        velocity_kps: asteroid.velocity_kps,
+        diameter_km: asteroid.diameter_km,
+    }
 }
 
 // ── Single asteroid ───────────────────────────────────────────────────────────

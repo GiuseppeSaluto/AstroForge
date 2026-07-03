@@ -24,35 +24,6 @@ pub struct RiskResult {
 }
 
 impl RiskResult {
-    pub fn new(
-        asteroid_id: String,
-        asteroid_name: String,
-        impact_energy_joules: f64,
-        impact_energy_megatons: f64,
-        risk_score: f64,
-        is_potentially_hazardous: bool,
-        miss_distance_km: f64,
-        velocity_kps: f64,
-        diameter_km: f64,
-    ) -> Self {
-        
-        let score = risk_score.clamp(0.0, 100.0);
-        let level = Self::compute_risk_level(score);
-
-        RiskResult {
-            asteroid_id,
-            asteroid_name,
-            impact_energy_joules,
-            impact_energy_megatons,
-            risk_level: level,
-            risk_score_0_to_100: score,
-            is_potentially_hazardous,
-            miss_distance_km,
-            velocity_kps,
-            diameter_km,
-        }
-    }
-
     pub fn compute_risk_level(score: f64) -> RiskLevel {
         match score {
             75.0..=100.0 => RiskLevel::Critical,
