@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Builda e pubblica su Docker Hub le immagini custom del progetto
+# Builds and publishes the project's custom images to Docker Hub
 # (rust-engine, python-api, dashboard).
 #
-# Solo linux/amd64: il build multi-arch (arm64) richiederebbe emulatori QEMU
-# registrati con privilegi root reali sul kernel host, incompatibili con
-# l'installazione Docker rootless usata qui. Su Mac Apple Silicon, Docker
-# Desktop esegue comunque immagini amd64 via emulazione interna.
+# linux/amd64 only: multi-arch (arm64) builds would require QEMU emulators
+# registered with real root privileges on the host kernel, which is
+# incompatible with the rootless Docker setup used here. On Apple Silicon
+# Macs, Docker Desktop still runs amd64 images fine via internal emulation.
 #
-# Prerequisiti: `docker login` gia' eseguito con l'account che pubblica.
+# Prerequisites: `docker login` already done with the publishing account.
 #
-# Uso:
+# Usage:
 #   ./publish_images.sh [tag]
-#   ./publish_images.sh          # pubblica come "latest"
-#   ./publish_images.sh v1.0.0   # pubblica anche con un tag versionato
+#   ./publish_images.sh          # publishes as "latest"
+#   ./publish_images.sh v1.0.0   # also publishes with a versioned tag
 
 set -euo pipefail
 
@@ -20,7 +20,7 @@ DOCKERHUB_USER="giuseppesaluto"
 TAG="${1:-latest}"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
-echo "Pubblico le immagini come ${DOCKERHUB_USER}/astroforge-*:${TAG} (linux/amd64)"
+echo "Publishing images as ${DOCKERHUB_USER}/astroforge-*:${TAG} (linux/amd64)"
 
 docker buildx build --platform linux/amd64 \
     -t "${DOCKERHUB_USER}/astroforge-rust-engine:${TAG}" \
@@ -34,4 +34,4 @@ docker buildx build --platform linux/amd64 \
     -t "${DOCKERHUB_USER}/astroforge-dashboard:${TAG}" \
     --push "${ROOT_DIR}/services/dashboard"
 
-echo "Fatto."
+echo "Done."
