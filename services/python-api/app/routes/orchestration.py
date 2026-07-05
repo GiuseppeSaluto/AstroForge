@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, request
-from requests.exceptions import RequestException
 from flask import current_app
 from datetime import datetime, timezone
 from app.core.pipeline import AnalysisPipeline
@@ -17,45 +16,16 @@ def analyze_neo_pipeline():
     if limit < 1 or limit > 1000:
         return jsonify({"error": "limit must be between 1 and 1000"}), 400
 
-    try:
-        stats = AnalysisPipeline.analyze_unprocessed_asteroids(limit=limit)
+    stats = AnalysisPipeline.analyze_unprocessed_asteroids(limit=limit)
 
-        logger.info(f"Pipeline completed successfully: {stats}")
+    logger.info(f"Pipeline completed successfully: {stats}")
 
-        return jsonify(
-            {
-                "status": "success",
-                "statistics": stats,
-            }
-        ), 200
-
-    except RuntimeError as e:
-        logger.error(f"Pipeline initialization error: {e}")
-        return (
-            jsonify(
-                {
-                    "error": "Pipeline not properly initialized",
-                    "details": str(e),
-                }
-            ),
-            500,
-        )
-
-    except RequestException as e:
-        logger.error(f"Rust Engine communication error: {e}")
-        return (
-            jsonify(
-                {
-                    "error": "Rust Engine unreachable",
-                    "details": str(e),
-                }
-            ),
-            503,
-        )
-
-    except Exception as e:
-        logger.critical(f"Unexpected pipeline error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    return jsonify(
+        {
+            "status": "success",
+            "statistics": stats,
+        }
+    ), 200
 
 
 @orchestration_bp.route("/neo/analyze/<asteroid_id>", methods=["POST"])
@@ -77,6 +47,10 @@ def analyze_single_neo(asteroid_id: str):
         )
 
     except ValueError as e:
+        # Route-specific meaning ("asteroid not found or invalid"), so
+        # this stays local rather than in the global error handlers —
+        # ValueError means something else entirely elsewhere (e.g. a
+        # misconfigured RUST_ENGINE_URL in rust_client.py).
         logger.warning(f"Asteroid {asteroid_id} not found or invalid: {e}")
         return (
             jsonify(
@@ -87,22 +61,6 @@ def analyze_single_neo(asteroid_id: str):
             ),
             404,
         )
-
-    except RequestException as e:
-        logger.error(f"Rust Engine communication error: {e}")
-        return (
-            jsonify(
-                {
-                    "error": "Rust Engine unreachable",
-                    "details": str(e),
-                }
-            ),
-            503,
-        )
-
-    except Exception as e:
-        logger.critical(f"Unexpected error analyzing asteroid {asteroid_id}: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 @orchestration_bp.route("/status", methods=["GET"])
 def pipeline_status():

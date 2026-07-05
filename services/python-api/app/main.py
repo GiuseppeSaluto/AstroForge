@@ -10,6 +10,7 @@ from app.routes.nasa import nasa_bp
 from app.routes.orchestration import orchestration_bp
 from app.routes.logs import logs_bp
 
+from app.utils.error_handlers import register_error_handlers
 from app.utils.logger import logger
 
 
@@ -73,6 +74,8 @@ def create_app():
     app.register_blueprint(nasa_bp)
     app.register_blueprint(orchestration_bp)
     app.register_blueprint(logs_bp)
+
+    register_error_handlers(app)
 
     seed_thread = threading.Thread(
         target=_seed_asteroids_on_startup,
