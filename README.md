@@ -64,7 +64,7 @@ Services started:
 |---|---|
 | Python API | `http://localhost:5001` |
 | Rust Engine | `http://localhost:8080` |
-| MongoDB | `localhost:27017` |
+| MongoDB | `localhost:27018` (mapped from the container's 27017, to avoid clashing with a local `mongod`) |
 
 ### Local dev (manual)
 
@@ -158,10 +158,10 @@ API_BASE_URL=https://your-deployed-api.fly.dev python -m app.main
 services/
 ├── python-api/           Flask API — NASA proxy, caching, pipeline orchestration
 │   ├── app/
-│   │   ├── core/         nasa_client, cache, mongodb, rust_client, pipeline, config
-│   │   ├── routes/       nasa, orchestration, logs, analysis
+│   │   ├── core/         nasa_client, cache, mongodb, rust_client, pipeline, dto_mapper, config
+│   │   ├── routes/       nasa, orchestration, logs
 │   │   ├── models/       Asteroid domain model
-│   │   └── utils/        Structured logger
+│   │   └── utils/        Structured logger, centralized error handlers
 │   ├── Dockerfile
 │   └── requirements.txt
 │
@@ -182,7 +182,7 @@ services/
 infra/
 ├── docker-compose.yml    Full stack orchestration
 ├── env/                  Environment variable templates
-└── scripts/              Local dev launcher
+└── scripts/              Local dev launcher, Docker Hub image publisher
 ```
 
 ---
@@ -197,17 +197,27 @@ The cache is intentionally in-process — no Redis dependency for the challenge 
 
 ## Environment Variables
 
+**Python API**
+
 | Variable | Required | Description |
 |---|---|---|
-| `NASA_API_KEY` | Yes | NASA API key (api.nasa.gov) |
-| `MONGO_URI` | Yes | MongoDB connection string |
+| `NASA_API_KEY` | Yes | NASA API key (api.nasa.gov) — no default, raises on startup if unset |
+| `MONGO_URI` | No | MongoDB connection string (default: `mongodb://localhost:27017`) |
 | `MONGO_DB` | No | Database name (default: `astroforge_db`) |
 | `RUST_ENGINE_URL` | Yes | Rust engine base URL |
-| `LOG_DIRECTORY` | No | Log file path (default: `./storage/logs`) |
+| `LOG_DIRECTORY` | No | Log file path (default: `./logs`; Docker Compose overrides this to `/app/storage/logs`) |
 | `REQUEST_TIMEOUT` | No | NASA HTTP timeout in seconds (default: 30) |
 | `DEBUG` | No | Flask debug mode (default: false) |
 
 Copy `infra/env/python.env.example` → `infra/env/python.env` and fill in values before starting.
+
+**Rust Engine**
+
+| Variable | Required | Description |
+|---|---|---|
+| `RUST_PORT` | No | Listen port (default: `8080`) |
+
+Copy `infra/env/rust.env.example` → `infra/env/rust.env` before starting.
 
 ---
 
