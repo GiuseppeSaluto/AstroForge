@@ -7,6 +7,8 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Button, Static
 
+from app.worker_safety import safe_worker
+
 from app.client.api_client import get_nasa_asteroids
 from app import theme
 
@@ -285,6 +287,7 @@ class ChartsScreen(Screen):
         self.query_one("#date_range").update(f"Range: {self._start} → {self._end}")
 
     @work(exclusive=True)
+    @safe_worker
     async def load_charts(self) -> None:
         if not _PLOTEXT:
             self.query_one("#status").update(

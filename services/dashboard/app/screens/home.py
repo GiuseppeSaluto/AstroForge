@@ -11,6 +11,7 @@ from app.widgets.status_panel import StatusPanel
 from app.widgets.threats_panel import TopThreatsPanel
 from app.widgets.close_approaches_panel import CloseApproachesPanel
 from app import theme
+from app.worker_safety import safe_worker
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,7 @@ class HomeScreen(Screen):
     # ── Pipeline quick-run ────────────────────────────────────────────────────
 
     @work(exclusive=True)
+    @safe_worker
     async def run_pipeline_action(self) -> None:
         button = self.query_one("#run_pipeline", Button)
         original_label = button.label

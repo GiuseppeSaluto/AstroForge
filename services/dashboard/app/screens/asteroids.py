@@ -7,6 +7,7 @@ from textual import work
 from app.client.api_client import get_analyzed_asteroids
 from app.screens.asteroid_detail import AsteroidDetailScreen
 from app import theme
+from app.worker_safety import safe_worker
 
 _RISK_COLOR = theme.RISK_COLOR
 
@@ -203,6 +204,7 @@ class AsteroidsScreen(Screen):
     # ── Data loading ──────────────────────────────────────────────────────────
 
     @work(exclusive=True)
+    @safe_worker
     async def load_asteroids(self) -> None:
         self.query_one("#status_bar").update("[yellow]Loading…[/yellow]")
         table = self.query_one("#asteroids_table", DataTable)

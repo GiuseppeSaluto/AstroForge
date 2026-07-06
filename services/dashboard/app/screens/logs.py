@@ -5,6 +5,7 @@ from textual import work
 
 from app.client.api_client import get_logs
 from app import theme
+from app.worker_safety import safe_worker
 
 
 class LogsScreen(Screen):
@@ -70,6 +71,7 @@ class LogsScreen(Screen):
             self.app.action_show_home()
 
     @work(exclusive=True)
+    @safe_worker
     async def load_logs(self) -> None:
         """Load and display logs."""
         self.log_display.clear()

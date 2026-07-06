@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.client.api_client import run_pipeline, get_pipeline_stats
 from app import theme
+from app.worker_safety import safe_worker
 
 
 class PipelineScreen(Screen):
@@ -132,6 +133,7 @@ class PipelineScreen(Screen):
     # ── Stats refresh ─────────────────────────────────────────────────────────
 
     @work(exclusive=True)
+    @safe_worker
     async def refresh_stats(self) -> None:
         try:
             worker = self.run_worker(get_pipeline_stats, thread=True)
@@ -178,6 +180,7 @@ class PipelineScreen(Screen):
     # ── Pipeline run ──────────────────────────────────────────────────────────
 
     @work(exclusive=True)
+    @safe_worker
     async def run_pipeline_action(self) -> None:
         button = self.query_one("#run_pipeline", Button)
         loading = self.query_one("#loading", LoadingIndicator)
