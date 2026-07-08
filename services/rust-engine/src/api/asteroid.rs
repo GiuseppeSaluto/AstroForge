@@ -4,6 +4,19 @@ use crate::api::error::map_domain_error;
 use crate::domain::risk::RiskResult;
 use crate::dto::asteroid_dto::AsteroidDTO;
 use crate::logic::impact_energy::{AsteroidDensity, ImpactPhysics};
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
+pub struct BatchError {
+    pub id: String,
+    pub details: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchResponse {
+    pub results: Vec<RiskResult>,
+    pub errors: Vec<BatchError>,
+}
 
 // ── Shared compute helper ─────────────────────────────────────────────────────
 
@@ -85,23 +98,23 @@ pub async fn process_asteroid_batch(Json(dtos): Json<Vec<AsteroidDTO>>) -> impl 
 
     tracing::info!(count = dtos.len(), "Processing asteroid batch");
 
-    let results: Vec<RiskResult> = dtos
-        .into_iter()
-        .filter_map(|dto| {
-            let id = dto.id.clone();
-            match Asteroid::try_from(dto) {
-                Ok(asteroid) => Some(compute_risk(&asteroid)),
-                Err(err) => {
-                    tracing::warn!(id = %id, error = %err, "Skipping asteroid: validation failed");
-                    None
-                }
+    let mut results = Vec::new();
+    let mut errors = Vec::new();
+
+    for dto in dtos {
+        let id = dto.id.clone();
+        match Asteroid::try_from(dto) {
+            Ok(asteroid) => results.push(compute_risk(&asteroid)),
+            Err(err) => {
+                tracing::warn!(id = %id, error = %err, "Rejecting asteroid: validation failed");
+                errors.push(BatchError { id, details: err.to_string() });
             }
-        })
-        .collect();
+        }
+    }
 
-    tracing::info!(processed = results.len(), "Batch complete");
+    tracing::info!(processed = results.len(), failed = errors.len(), "Batch complete");
 
-    (StatusCode::OK, Json(results)).into_response()
+    (StatusCode::OK, Json(BatchResponse { results, errors })).into_response()
 }
 
 // ── Integration tests ──────────────────────────────────────────────────────
@@ -113,7 +126,7 @@ pub async fn process_asteroid_batch(Json(dtos): Json<Vec<AsteroidDTO>>) -> impl 
 #[cfg(test)]
 mod integration_tests {
     use crate::api::router;
-    use axum::body::Body;
+    use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
@@ -200,14 +213,21 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn process_batch_skips_invalid_entries_but_processes_valid_ones() {
+    async fn process_batch_reports_errors_for_invalid_entries() {
         let mut invalid = valid_asteroid_json();
+        invalid["id"] = serde_json::json!("bad-one");
         invalid["diameter_avg_km"] = serde_json::json!(-1.0);
         let batch = serde_json::json!([valid_asteroid_json(), invalid]);
         let request = post_request("/process/batch", batch);
 
         let response = router().oneshot(request).await.unwrap();
-
         assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["results"].as_array().unwrap().len(), 1);
+        assert_eq!(json["errors"].as_array().unwrap().len(), 1);
+        assert_eq!(json["errors"][0]["id"], "bad-one");
     }
 }

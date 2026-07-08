@@ -1,19 +1,8 @@
 """
 Tests for app.core.pipeline.AnalysisPipeline.
 
-pipeline.py is the orchestration core of the Python API: it pulls
-unprocessed asteroids from Mongo, maps them to domain objects, sends them
-to the Rust Engine, and persists results — while keeping a running
-`stats` dict that the /pipeline/neo/analyze endpoint reports back to the
-caller. That bookkeeping (processed/failed/skipped counts staying
-accurate across partial failures — a Rust validation rejection, a Mongo
-write error, an unreachable Rust Engine) is where a silent miscount could
-hide a real problem with no crash to reveal it.
-
-Collaborators (Mongo, the Rust client, dto_mapper) are mocked throughout —
-they already have their own coverage (test_dto_mapper.py,
-test_nasa_client.py) — so these tests isolate pipeline.py's own
-orchestration logic.
+Mocks Mongo, the Rust client, and dto_mapper to isolate pipeline.py's own
+orchestration logic (stats bookkeeping across partial failures).
 """
 from unittest.mock import MagicMock
 
@@ -22,6 +11,7 @@ from flask import Flask
 from requests.exceptions import RequestException
 
 from app.core.pipeline import AnalysisPipeline
+from app.core.rust_client import BatchResult
 from app.models.asteroid import Asteroid
 
 
@@ -98,10 +88,13 @@ class TestAnalyzeUnprocessedAsteroids:
         )
         batch_mock = mocker.patch(
             "app.core.pipeline.process_asteroid_batch_with_rust",
-            return_value=[
-                {"asteroid_id": "1", "risk_level": "Low"},
-                {"asteroid_id": "2", "risk_level": "High"},
-            ],
+            return_value=BatchResult(
+                results=[
+                    {"asteroid_id": "1", "risk_level": "Low"},
+                    {"asteroid_id": "2", "risk_level": "High"},
+                ],
+                errors=[],
+            ),
         )
 
         stats = AnalysisPipeline.analyze_unprocessed_asteroids()
@@ -110,10 +103,9 @@ class TestAnalyzeUnprocessedAsteroids:
         assert stats == {"total_fetched": 2, "processed": 2, "failed": 0, "skipped": 0}
         assert mock_mongo.save_analysis_result.call_count == 2
 
-    def test_asteroid_missing_from_rust_response_counts_as_skipped(self, app_context, mock_mongo, mocker):
-        # The Rust Engine silently drops an asteroid that fails its own
-        # validation (e.g. non-physical diameter) — the batch response
-        # comes back one entry short, with no error raised.
+    def test_asteroid_rejected_by_rust_counts_as_skipped(self, app_context, mock_mongo, mocker):
+        # The Rust Engine rejects an asteroid that fails its own validation
+        # (e.g. non-physical diameter), reporting it in `errors`.
         mock_mongo.get_unprocessed_asteroids.return_value = [make_raw_doc("1"), make_raw_doc("2")]
         mocker.patch(
             "app.core.pipeline.map_mongo_document_to_asteroid",
@@ -121,7 +113,10 @@ class TestAnalyzeUnprocessedAsteroids:
         )
         mocker.patch(
             "app.core.pipeline.process_asteroid_batch_with_rust",
-            return_value=[{"asteroid_id": "1", "risk_level": "Low"}],
+            return_value=BatchResult(
+                results=[{"asteroid_id": "1", "risk_level": "Low"}],
+                errors=[{"id": "2", "details": "Invalid diameter: -1 km (must be > 0)"}],
+            ),
         )
 
         stats = AnalysisPipeline.analyze_unprocessed_asteroids()
@@ -152,10 +147,13 @@ class TestAnalyzeUnprocessedAsteroids:
         )
         mocker.patch(
             "app.core.pipeline.process_asteroid_batch_with_rust",
-            return_value=[
-                {"asteroid_id": "1", "risk_level": "Low"},
-                {"asteroid_id": "2", "risk_level": "High"},
-            ],
+            return_value=BatchResult(
+                results=[
+                    {"asteroid_id": "1", "risk_level": "Low"},
+                    {"asteroid_id": "2", "risk_level": "High"},
+                ],
+                errors=[],
+            ),
         )
         mock_mongo.save_analysis_result.side_effect = [RuntimeError("mongo write error"), None]
 

@@ -1,11 +1,18 @@
 import requests
+from dataclasses import dataclass
 from typing import Dict, Any
 
 from app.core.config import RUST_ENGINE_URL, REQUEST_TIMEOUT
 from app.utils.logger import logger
 
 
-def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+@dataclass
+class BatchResult:
+    results: list[Dict[str, Any]]
+    errors: list[Dict[str, Any]]
+
+
+def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> BatchResult:
     if not RUST_ENGINE_URL:
         raise ValueError("RUST_ENGINE_URL is not configured.")
 
@@ -20,12 +27,16 @@ def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> lis
         raise
 
     try:
-        results = response.json()
+        payload = response.json()
     except ValueError as e:
         raise RuntimeError("Rust Engine returned invalid JSON for batch") from e
 
-    logger.info(f"Received {len(results)} results from Rust Engine batch")
-    return results
+    batch = BatchResult(results=payload["results"], errors=payload["errors"])
+    logger.info(
+        f"Received {len(batch.results)} results and {len(batch.errors)} errors "
+        "from Rust Engine batch"
+    )
+    return batch
 
 
 def process_asteroid_with_rust(asteroid_dto: Dict[str, Any]) -> Dict[str, Any]:

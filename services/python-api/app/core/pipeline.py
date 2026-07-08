@@ -49,17 +49,14 @@ class AnalysisPipeline:
             id_to_asteroid = {a.id: a for a in asteroids}
 
             try:
-                results = process_asteroid_batch_with_rust(dto_list)
+                batch = process_asteroid_batch_with_rust(dto_list)
             except RequestException as e:
                 logger.error(f"Rust engine batch request failed: {e}")
                 stats["failed"] += len(asteroids)
                 return stats
 
-            # Index results by asteroid_id and persist each one
-            returned_ids = set()
-            for risk_result in results:
+            for risk_result in batch.results:
                 asteroid_id = risk_result.get("asteroid_id", "unknown")
-                returned_ids.add(asteroid_id)
                 try:
                     mongo.save_analysis_result(asteroid_id, risk_result)
                     stats["processed"] += 1
@@ -71,11 +68,9 @@ class AnalysisPipeline:
                     logger.error(f"Failed to save result for asteroid {asteroid_id}: {e}")
                     stats["failed"] += 1
 
-            # Any asteroid that was sent but not returned was skipped by Rust (validation)
-            for a in asteroids:
-                if a.id not in returned_ids:
-                    logger.warning(f"Asteroid {a.id} was not returned by Rust Engine (validation skipped)")
-                    stats["skipped"] += 1
+            for err in batch.errors:
+                logger.warning(f"Asteroid {err['id']} rejected by Rust Engine: {err['details']}")
+                stats["skipped"] += 1
             
             logger.info(
                 f"Pipeline completed: {stats['processed']} processed, "
