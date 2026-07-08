@@ -1,6 +1,7 @@
 use axum::routing::{get, post};
 use axum::Router;
 mod asteroid;
+mod error;
 
 pub use asteroid::{process_asteroid, process_asteroid_batch};
 

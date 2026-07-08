@@ -1,6 +1,6 @@
 use axum::{extract::Json, http::StatusCode, response::IntoResponse};
 use crate::domain::asteroid::Asteroid;
-use crate::domain::error::map_domain_error;
+use crate::api::error::map_domain_error;
 use crate::domain::risk::RiskResult;
 use crate::dto::asteroid_dto::AsteroidDTO;
 use crate::logic::impact_energy::{AsteroidDensity, ImpactPhysics};
