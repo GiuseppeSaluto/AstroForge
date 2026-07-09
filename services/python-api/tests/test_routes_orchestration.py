@@ -11,11 +11,13 @@ from unittest.mock import MagicMock
 from flask import Flask
 
 from app.routes.orchestration import orchestration_bp
+from app.utils.error_handlers import register_error_handlers
 
 
 def make_app(mongo=None) -> Flask:
     app = Flask(__name__)
     app.register_blueprint(orchestration_bp)
+    register_error_handlers(app)
     app.extensions = {"mongo": mongo} if mongo is not None else {}
     return app
 
@@ -148,6 +150,8 @@ class TestPipelineStats:
         assert response.status_code == 500
 
     def test_aggregation_error_returns_500(self):
+        # stats no longer wraps this in a local try/except — checks the
+        # error actually reaches the global RuntimeError handler.
         mongo = MagicMock()
         mongo.db.__getitem__.side_effect = RuntimeError("mongo down")
         client = make_app(mongo=mongo).test_client()
@@ -155,6 +159,7 @@ class TestPipelineStats:
         response = client.get("/pipeline/stats")
 
         assert response.status_code == 500
+        assert response.get_json()["error"] == "Pipeline not properly initialized"
 
 
 class TestCloseApproaches:
@@ -198,6 +203,7 @@ class TestCloseApproaches:
         response = client.get("/pipeline/close-approaches")
 
         assert response.status_code == 500
+        assert response.get_json()["error"] == "Pipeline not properly initialized"
 
 
 class TestListAnalyzedAsteroids:
@@ -240,3 +246,4 @@ class TestListAnalyzedAsteroids:
         response = client.get("/pipeline/analysis/asteroids")
 
         assert response.status_code == 500
+        assert response.get_json()["error"] == "Pipeline not properly initialized"

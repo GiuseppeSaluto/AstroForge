@@ -113,56 +113,51 @@ def pipeline_stats():
     if not mongo:
         return jsonify({"status": "error", "reason": "MongoDB not initialized"}), 500
 
-    try:
-        raw_collection = mongo.db["asteroids_raw"]
-        analysis_collection = mongo.db["asteroid_analyses"]
+    raw_collection = mongo.db["asteroids_raw"]
+    analysis_collection = mongo.db["asteroid_analyses"]
 
-        pipeline_agg = [
-            {"$lookup": {
-                "from": "asteroid_analyses",
-                "localField": "asteroid.id",
-                "foreignField": "neo_reference_id",
-                "as": "analysis",
-            }},
-            {"$match": {"analysis": {"$size": 0}}},
-            {"$count": "unprocessed"},
-        ]
-        agg_result = list(raw_collection.aggregate(pipeline_agg))
-        unprocessed_count = agg_result[0]["unprocessed"] if agg_result else 0
+    pipeline_agg = [
+        {"$lookup": {
+            "from": "asteroid_analyses",
+            "localField": "asteroid.id",
+            "foreignField": "neo_reference_id",
+            "as": "analysis",
+        }},
+        {"$match": {"analysis": {"$size": 0}}},
+        {"$count": "unprocessed"},
+    ]
+    agg_result = list(raw_collection.aggregate(pipeline_agg))
+    unprocessed_count = agg_result[0]["unprocessed"] if agg_result else 0
 
-        analyzed_today = analysis_collection.count_documents({
-            "analysis_timestamp": {
-                "$gte": datetime.now(timezone.utc).replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-            }
-        })
+    analyzed_today = analysis_collection.count_documents({
+        "analysis_timestamp": {
+            "$gte": datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+        }
+    })
 
-        high_risk_count = analysis_collection.count_documents({
-            "risk_data.risk_level": {"$in": ["High", "Critical"]}
-        })
+    high_risk_count = analysis_collection.count_documents({
+        "risk_data.risk_level": {"$in": ["High", "Critical"]}
+    })
 
-        total_analyzed = analysis_collection.count_documents({})
+    total_analyzed = analysis_collection.count_documents({})
 
-        last_run = analysis_collection.find_one(
-            sort=[("analysis_timestamp", -1)]
-        )
+    last_run = analysis_collection.find_one(
+        sort=[("analysis_timestamp", -1)]
+    )
 
-        return jsonify({
-            "status": "ok",
-            "unprocessed": unprocessed_count,
-            "analyzed_today": analyzed_today,
-            "total_analyzed": total_analyzed,
-            "high_risks": high_risk_count,
-            "last_pipeline_run": (
-                last_run["analysis_timestamp"].isoformat()
-                if last_run else None
-            ),
-        }), 200
-
-    except Exception as e:
-        logger.error(f"Failed to compute pipeline stats: {e}")
-        return jsonify({"status": "error", "details": str(e)}), 500
+    return jsonify({
+        "status": "ok",
+        "unprocessed": unprocessed_count,
+        "analyzed_today": analyzed_today,
+        "total_analyzed": total_analyzed,
+        "high_risks": high_risk_count,
+        "last_pipeline_run": (
+            last_run["analysis_timestamp"].isoformat()
+            if last_run else None
+        ),
+    }), 200
 
 @orchestration_bp.route("/close-approaches", methods=["GET"])
 def close_approaches():
@@ -172,52 +167,47 @@ def close_approaches():
     if not mongo:
         return jsonify({"status": "error", "reason": "MongoDB not initialized"}), 500
 
-    try:
-        pipeline = [
-            {"$unwind": "$asteroid.close_approach_data"},
-            {
-                "$lookup": {
-                    "from": "asteroid_analyses",
-                    "localField": "asteroid.id",
-                    "foreignField": "neo_reference_id",
-                    "as": "analysis",
-                }
-            },
-            {
-                "$project": {
-                    "name": "$asteroid.name",
-                    "is_hazardous": "$asteroid.is_potentially_hazardous_asteroid",
-                    "close_approach_date": "$asteroid.close_approach_data.close_approach_date",
-                    "miss_km": {"$toDouble": "$asteroid.close_approach_data.miss_distance.kilometers"},
-                    "velocity_kps": {"$toDouble": "$asteroid.close_approach_data.relative_velocity.kilometers_per_second"},
-                    "risk_level": {"$arrayElemAt": ["$analysis.risk_data.risk_level", 0]},
-                    "risk_score": {"$arrayElemAt": ["$analysis.risk_data.risk_score_0_to_100", 0]},
-                    "diameter_km": {"$arrayElemAt": ["$analysis.risk_data.diameter_km", 0]},
-                }
-            },
-            {"$sort": {"miss_km": 1}},
-            {"$limit": limit},
-        ]
-
-        results = list(mongo.db["asteroids_raw"].aggregate(pipeline))
-
-        return jsonify([
-            {
-                "name": r.get("name", "?"),
-                "is_hazardous": r.get("is_hazardous", False),
-                "close_approach_date": r.get("close_approach_date", ""),
-                "miss_km": round(r.get("miss_km") or 0.0),
-                "velocity_kps": round(r.get("velocity_kps") or 0.0, 2),
-                "risk_level": r.get("risk_level") or "Unknown",
-                "risk_score": round(r.get("risk_score") or 0.0, 1),
-                "diameter_km": round(r.get("diameter_km") or 0.0, 4),
+    pipeline = [
+        {"$unwind": "$asteroid.close_approach_data"},
+        {
+            "$lookup": {
+                "from": "asteroid_analyses",
+                "localField": "asteroid.id",
+                "foreignField": "neo_reference_id",
+                "as": "analysis",
             }
-            for r in results
-        ]), 200
+        },
+        {
+            "$project": {
+                "name": "$asteroid.name",
+                "is_hazardous": "$asteroid.is_potentially_hazardous_asteroid",
+                "close_approach_date": "$asteroid.close_approach_data.close_approach_date",
+                "miss_km": {"$toDouble": "$asteroid.close_approach_data.miss_distance.kilometers"},
+                "velocity_kps": {"$toDouble": "$asteroid.close_approach_data.relative_velocity.kilometers_per_second"},
+                "risk_level": {"$arrayElemAt": ["$analysis.risk_data.risk_level", 0]},
+                "risk_score": {"$arrayElemAt": ["$analysis.risk_data.risk_score_0_to_100", 0]},
+                "diameter_km": {"$arrayElemAt": ["$analysis.risk_data.diameter_km", 0]},
+            }
+        },
+        {"$sort": {"miss_km": 1}},
+        {"$limit": limit},
+    ]
 
-    except Exception as e:
-        logger.error(f"Failed to get close approaches: {e}")
-        return jsonify({"status": "error", "details": str(e)}), 500
+    results = list(mongo.db["asteroids_raw"].aggregate(pipeline))
+
+    return jsonify([
+        {
+            "name": r.get("name", "?"),
+            "is_hazardous": r.get("is_hazardous", False),
+            "close_approach_date": r.get("close_approach_date", ""),
+            "miss_km": round(r.get("miss_km") or 0.0),
+            "velocity_kps": round(r.get("velocity_kps") or 0.0, 2),
+            "risk_level": r.get("risk_level") or "Unknown",
+            "risk_score": round(r.get("risk_score") or 0.0, 1),
+            "diameter_km": round(r.get("diameter_km") or 0.0, 4),
+        }
+        for r in results
+    ]), 200
 
 
 @orchestration_bp.route("/analysis/asteroids", methods=["GET"])
@@ -231,42 +221,37 @@ def list_analyzed_asteroids():
     sort_by = request.args.get("sort", default="risk_score", type=str)
     order = request.args.get("order", default="desc", type=str)
 
-    try:
-        collection = mongo.db["asteroid_analyses"]
+    collection = mongo.db["asteroid_analyses"]
 
-        sort_field = {
-            "risk": "risk_data.risk_score_0_to_100",
-            "energy": "risk_data.impact_energy_megatons",
-            "date": "analysis_timestamp",
-        }.get(sort_by, "risk_data.risk_score_0_to_100")
+    sort_field = {
+        "risk": "risk_data.risk_score_0_to_100",
+        "energy": "risk_data.impact_energy_megatons",
+        "date": "analysis_timestamp",
+    }.get(sort_by, "risk_data.risk_score_0_to_100")
 
-        sort_dir = -1 if order == "desc" else 1
+    sort_dir = -1 if order == "desc" else 1
 
-        cursor = (
-            collection
-            .find({}, {"_id": 0})
-            .sort(sort_field, sort_dir)
-            .limit(limit)
-        )
+    cursor = (
+        collection
+        .find({}, {"_id": 0})
+        .sort(sort_field, sort_dir)
+        .limit(limit)
+    )
 
-        results = []
-        for doc in cursor:
-            risk = doc["risk_data"]
-            results.append({
-                "id": doc["neo_reference_id"],
-                "name": risk["asteroid_name"],
-                "risk_level": risk["risk_level"],
-                "risk_score": risk["risk_score_0_to_100"],
-                "energy_mt": risk["impact_energy_megatons"],
-                "distance_km": risk["miss_distance_km"],
-                "diameter_km": risk["diameter_km"],
-                "velocity_kps": risk["velocity_kps"],
-                "hazardous": risk["is_potentially_hazardous"],
-                "analyzed_at": doc["analysis_timestamp"].isoformat(),
-            })
+    results = []
+    for doc in cursor:
+        risk = doc["risk_data"]
+        results.append({
+            "id": doc["neo_reference_id"],
+            "name": risk["asteroid_name"],
+            "risk_level": risk["risk_level"],
+            "risk_score": risk["risk_score_0_to_100"],
+            "energy_mt": risk["impact_energy_megatons"],
+            "distance_km": risk["miss_distance_km"],
+            "diameter_km": risk["diameter_km"],
+            "velocity_kps": risk["velocity_kps"],
+            "hazardous": risk["is_potentially_hazardous"],
+            "analyzed_at": doc["analysis_timestamp"].isoformat(),
+        })
 
-        return jsonify(results), 200
-
-    except Exception as e:
-        logger.error(f"Failed to list analyzed asteroids: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    return jsonify(results), 200

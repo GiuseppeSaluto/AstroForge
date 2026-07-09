@@ -14,11 +14,13 @@ from flask import Flask
 from requests.exceptions import HTTPError, RequestException
 
 from app.routes.nasa import nasa_bp
+from app.utils.error_handlers import register_error_handlers
 
 
 def make_app(mongo=None) -> Flask:
     app = Flask(__name__)
     app.register_blueprint(nasa_bp)
+    register_error_handlers(app)
     app.extensions = {"mongo": mongo} if mongo is not None else {}
     return app
 
@@ -84,12 +86,16 @@ class TestNeoFeed:
 
         assert response.status_code == 503
 
-    def test_unexpected_error_returns_500(self, client, mocker):
+    def test_unexpected_error_falls_through_to_global_handler(self, client, mocker):
+        # neo_feed no longer catches generic Exception itself — this checks
+        # it actually reaches app.utils.error_handlers, not just that Flask's
+        # own unhandled-exception fallback happens to also return 500.
         mocker.patch("app.routes.nasa.get_neo_feed", side_effect=KeyError("boom"))
 
         response = client.get("/nasa/neo/feed")
 
         assert response.status_code == 500
+        assert response.get_json() == {"error": "Internal server error"}
 
 
 class TestSaveNeoData:
@@ -115,12 +121,16 @@ class TestSaveNeoData:
         assert response.status_code == 502
 
     def test_mongo_not_initialized_returns_500(self, mocker):
+        # The RuntimeError raised for a missing mongo extension is no longer
+        # caught locally — this checks it reaches the global RuntimeError
+        # handler (distinct message) rather than a generic 500 fallback.
         client = make_app(mongo=None).test_client()
         mocker.patch("app.routes.nasa.get_neo_feed", return_value={"near_earth_objects": {}})
 
         response = client.post("/nasa/neo/save")
 
         assert response.status_code == 500
+        assert response.get_json()["error"] == "Pipeline not properly initialized"
 
     def test_request_exception_returns_503(self, mocker):
         client = make_app(mongo=MagicMock()).test_client()

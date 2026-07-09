@@ -58,9 +58,6 @@ def neo_feed():
     except RequestException as e:
         logger.error(f"NASA API network error: {e}")
         return jsonify({"error": "Failed to connect to NASA API", "details": str(e)}), 503
-    except Exception as e:
-        logger.critical(f"Unexpected error in /nasa/neo/feed: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 
 @nasa_bp.route("/neo/save", methods=["POST"])
@@ -103,9 +100,6 @@ def save_neo_data():
     except RequestException as e:
         logger.error(f"NASA API request failed: {e}")
         return jsonify({"error": "NASA API unreachable"}), 503
-    except Exception as e:
-        logger.critical(f"Unexpected error in /nasa/neo/save: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
 
 @nasa_bp.route("/asteroids", methods=["GET"])
@@ -177,9 +171,6 @@ def list_asteroids():
     except RequestException as e:
         logger.error(f"NASA API unreachable: {e}")
         return jsonify({"error": "Failed to connect to NASA API"}), 503
-    except Exception as e:
-        logger.critical(f"Unexpected error in /nasa/asteroids: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
     # --- normalize & deduplicate by asteroid id (keep smallest miss distance) ---
     seen: dict[str, dict] = {}
@@ -243,9 +234,6 @@ def asteroid_detail(asteroid_id: str):
     except RequestException as e:
         logger.error(f"NASA API unreachable for asteroid {asteroid_id}: {e}")
         return jsonify({"error": "Failed to connect to NASA API"}), 503
-    except Exception as e:
-        logger.critical(f"Unexpected error in /nasa/asteroids/{asteroid_id}: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
     diameter = data.get("estimated_diameter", {})
     orbital = data.get("orbital_data", {})
