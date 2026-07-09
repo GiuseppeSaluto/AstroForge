@@ -8,10 +8,15 @@ function itself rather than the HTTP layer.
 import pytest
 import requests
 
-from app.core.config import RUST_ENGINE_URL
 from app.core.rust_client import BatchResult, process_asteroid_batch_with_rust
 
-BATCH_URL = f"{RUST_ENGINE_URL}/api/process/batch"
+FAKE_RUST_ENGINE_URL = "http://rust-engine.test"
+BATCH_URL = f"{FAKE_RUST_ENGINE_URL}/api/process/batch"
+
+
+@pytest.fixture(autouse=True)
+def _rust_engine_url(monkeypatch):
+    monkeypatch.setattr("app.core.rust_client.RUST_ENGINE_URL", FAKE_RUST_ENGINE_URL)
 
 
 class TestProcessAsteroidBatchWithRust:
