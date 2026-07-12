@@ -199,6 +199,103 @@ class MongoDBClient:
             logger.error(f"Failed to save analysis result for {asteroid_id}: {e}")
             raise
 
+    def get_pipeline_stats(self) -> dict:
+        """Aggregate counts backing the /pipeline/stats endpoint."""
+        if self.db is None:
+            raise RuntimeError("Database not initialized")
+
+        try:
+            raw_collection = self.db["asteroids_raw"]
+            analysis_collection = self.db["asteroid_analyses"]
+
+            pipeline = [
+                {"$lookup": {
+                    "from": "asteroid_analyses",
+                    "localField": "asteroid.id",
+                    "foreignField": "neo_reference_id",
+                    "as": "analysis",
+                }},
+                {"$match": {"analysis": {"$size": 0}}},
+                {"$count": "unprocessed"},
+            ]
+            agg_result = list(raw_collection.aggregate(pipeline))
+            unprocessed = agg_result[0]["unprocessed"] if agg_result else 0
+
+            today_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            analyzed_today = analysis_collection.count_documents({
+                "analysis_timestamp": {"$gte": today_start}
+            })
+
+            high_risks = analysis_collection.count_documents({
+                "risk_data.risk_level": {"$in": ["High", "Critical"]}
+            })
+
+            total_analyzed = analysis_collection.count_documents({})
+
+            last_run = analysis_collection.find_one(sort=[("analysis_timestamp", -1)])
+
+            return {
+                "unprocessed": unprocessed,
+                "analyzed_today": analyzed_today,
+                "total_analyzed": total_analyzed,
+                "high_risks": high_risks,
+                "last_pipeline_run": last_run["analysis_timestamp"] if last_run else None,
+            }
+        except PyMongoError as e:
+            logger.error(f"Failed to compute pipeline stats: {e}")
+            raise
+
+    def get_close_approaches(self, limit: int = 10) -> list[dict]:
+        """NEOs sorted by miss distance, enriched with risk data from the latest analysis."""
+        if self.db is None:
+            raise RuntimeError("Database not initialized")
+
+        try:
+            pipeline = [
+                {"$unwind": "$asteroid.close_approach_data"},
+                {"$lookup": {
+                    "from": "asteroid_analyses",
+                    "localField": "asteroid.id",
+                    "foreignField": "neo_reference_id",
+                    "as": "analysis",
+                }},
+                {"$project": {
+                    "name": "$asteroid.name",
+                    "is_hazardous": "$asteroid.is_potentially_hazardous_asteroid",
+                    "close_approach_date": "$asteroid.close_approach_data.close_approach_date",
+                    "miss_km": {"$toDouble": "$asteroid.close_approach_data.miss_distance.kilometers"},
+                    "velocity_kps": {"$toDouble": "$asteroid.close_approach_data.relative_velocity.kilometers_per_second"},
+                    "risk_level": {"$arrayElemAt": ["$analysis.risk_data.risk_level", 0]},
+                    "risk_score": {"$arrayElemAt": ["$analysis.risk_data.risk_score_0_to_100", 0]},
+                    "diameter_km": {"$arrayElemAt": ["$analysis.risk_data.diameter_km", 0]},
+                }},
+                {"$sort": {"miss_km": 1}},
+                {"$limit": limit},
+            ]
+            return list(self.db["asteroids_raw"].aggregate(pipeline))
+        except PyMongoError as e:
+            logger.error(f"Failed to fetch close approaches: {e}")
+            raise
+
+    def get_analyzed_asteroids(self, limit: int, sort_field: str, sort_dir: int) -> list[dict]:
+        """Analyzed asteroids sorted by the given risk_data field."""
+        if self.db is None:
+            raise RuntimeError("Database not initialized")
+
+        try:
+            cursor = (
+                self.db["asteroid_analyses"]
+                .find({}, {"_id": 0})
+                .sort(sort_field, sort_dir)
+                .limit(limit)
+            )
+            return list(cursor)
+        except PyMongoError as e:
+            logger.error(f"Failed to fetch analyzed asteroids: {e}")
+            raise
+
     def close(self):
         if self.client:
             self.client.close()

@@ -102,26 +102,23 @@ class TestPipelineStatus:
 
 
 class TestPipelineStats:
-    def _make_mongo(self, unprocessed_count=0, analyzed_today=0, high_risk=0, total=0, last_run=None):
+    """The Mongo aggregation itself is covered in test_mongodb.py; these
+    tests cover the route's own job: response shaping and status mapping."""
+
+    def _make_mongo(self, unprocessed=0, analyzed_today=0, high_risks=0, total=0, last_run=None):
         mongo = MagicMock()
-        raw_collection = MagicMock()
-        raw_collection.aggregate.return_value = [{"unprocessed": unprocessed_count}] if unprocessed_count else []
-        analysis_collection = MagicMock()
-        analysis_collection.count_documents.side_effect = [analyzed_today, high_risk, total]
-        analysis_collection.find_one.return_value = last_run
-        # mongo.db["name"] is a __getitem__ call — MagicMock returns the same
-        # child mock for every call by default regardless of the argument, so
-        # without this side_effect both collection names would resolve to the
-        # same mock and clobber each other's setup.
-        mongo.db.__getitem__.side_effect = lambda name: {
-            "asteroids_raw": raw_collection,
-            "asteroid_analyses": analysis_collection,
-        }[name]
+        mongo.get_pipeline_stats.return_value = {
+            "unprocessed": unprocessed,
+            "analyzed_today": analyzed_today,
+            "total_analyzed": total,
+            "high_risks": high_risks,
+            "last_pipeline_run": last_run,
+        }
         return mongo
 
     def test_returns_computed_stats(self):
-        last_run_doc = {"analysis_timestamp": datetime(2025, 1, 1, tzinfo=timezone.utc)}
-        mongo = self._make_mongo(unprocessed_count=3, analyzed_today=5, high_risk=2, total=10, last_run=last_run_doc)
+        last_run = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        mongo = self._make_mongo(unprocessed=3, analyzed_today=5, high_risks=2, total=10, last_run=last_run)
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/stats")
@@ -153,7 +150,7 @@ class TestPipelineStats:
         # stats no longer wraps this in a local try/except — checks the
         # error actually reaches the global RuntimeError handler.
         mongo = MagicMock()
-        mongo.db.__getitem__.side_effect = RuntimeError("mongo down")
+        mongo.get_pipeline_stats.side_effect = RuntimeError("mongo down")
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/stats")
@@ -165,8 +162,7 @@ class TestPipelineStats:
 class TestCloseApproaches:
     def test_returns_mapped_results_with_defaults(self):
         mongo = MagicMock()
-        raw_collection = MagicMock()
-        raw_collection.aggregate.return_value = [
+        mongo.get_close_approaches.return_value = [
             {
                 "name": "Alpha", "is_hazardous": True, "close_approach_date": "2025-01-01",
                 "miss_km": 123.4, "velocity_kps": 10.5, "risk_level": "Low",
@@ -174,7 +170,6 @@ class TestCloseApproaches:
             },
             {},
         ]
-        mongo.db.__getitem__.return_value = raw_collection
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/close-approaches?limit=5")
@@ -187,6 +182,7 @@ class TestCloseApproaches:
             "miss_km": 0, "velocity_kps": 0.0, "risk_level": "Unknown",
             "risk_score": 0.0, "diameter_km": 0.0,
         }
+        mongo.get_close_approaches.assert_called_once_with(limit=5)
 
     def test_mongo_not_initialized_returns_500(self):
         client = make_app(mongo=None).test_client()
@@ -197,7 +193,7 @@ class TestCloseApproaches:
 
     def test_aggregation_error_returns_500(self):
         mongo = MagicMock()
-        mongo.db.__getitem__.side_effect = RuntimeError("mongo down")
+        mongo.get_close_approaches.side_effect = RuntimeError("mongo down")
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/close-approaches")
@@ -209,7 +205,6 @@ class TestCloseApproaches:
 class TestListAnalyzedAsteroids:
     def test_returns_mapped_results(self):
         mongo = MagicMock()
-        collection = MagicMock()
         doc = {
             "neo_reference_id": "1",
             "risk_data": {
@@ -219,8 +214,7 @@ class TestListAnalyzedAsteroids:
             },
             "analysis_timestamp": datetime(2025, 1, 1, tzinfo=timezone.utc),
         }
-        collection.find.return_value.sort.return_value.limit.return_value = [doc]
-        mongo.db.__getitem__.return_value = collection
+        mongo.get_analyzed_asteroids.return_value = [doc]
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/analysis/asteroids?sort=energy&order=asc")
@@ -229,7 +223,9 @@ class TestListAnalyzedAsteroids:
         body = response.get_json()
         assert body[0]["id"] == "1"
         assert body[0]["name"] == "Alpha"
-        collection.find.return_value.sort.assert_called_once_with("risk_data.impact_energy_megatons", 1)
+        mongo.get_analyzed_asteroids.assert_called_once_with(
+            limit=200, sort_field="risk_data.impact_energy_megatons", sort_dir=1
+        )
 
     def test_mongo_not_initialized_returns_500(self):
         client = make_app(mongo=None).test_client()
@@ -240,7 +236,7 @@ class TestListAnalyzedAsteroids:
 
     def test_query_error_returns_500(self):
         mongo = MagicMock()
-        mongo.db.__getitem__.side_effect = RuntimeError("mongo down")
+        mongo.get_analyzed_asteroids.side_effect = RuntimeError("mongo down")
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/analysis/asteroids")
