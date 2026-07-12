@@ -3,7 +3,6 @@ import logging
 from datetime import datetime
 
 from textual.app import ComposeResult
-from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Rule, Static
 from textual import work
@@ -19,14 +18,6 @@ _BAR_LABEL_W = 12
 
 class StatusPanel(Widget):
     """Left home panel: service status, mission stats, and live bars."""
-
-    class StatusChanged(Message):
-        """Posted when service health is fetched. HomeScreen uses this to update the clock bar."""
-        def __init__(self, backend_ok: bool, mongodb_ok: bool, rust_ok: bool) -> None:
-            super().__init__()
-            self.backend_ok = backend_ok
-            self.mongodb_ok = mongodb_ok
-            self.rust_ok = rust_ok
 
     DEFAULT_CSS = theme.apply("""
     StatusPanel {
@@ -140,9 +131,6 @@ class StatusPanel(Widget):
             backend_ok = backend.get("status") == "healthy"
             mongodb_ok = backend.get("components", {}).get("mongodb") == "connected"
             rust_ok = rust.get("status") == "ok"
-
-            # Notify HomeScreen so it can update the clock bar dots
-            self.post_message(self.StatusChanged(backend_ok, mongodb_ok, rust_ok))
 
             def _row(label: str, ok: bool, ok_text: str, err_text: str) -> str:
                 dot = "●" if ok else "○"

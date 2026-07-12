@@ -10,6 +10,7 @@ from app.client.api_client import run_pipeline
 from app.widgets.status_panel import StatusPanel
 from app.widgets.threats_panel import TopThreatsPanel
 from app.widgets.close_approaches_panel import CloseApproachesPanel
+from app.widgets.global_status_bar import GlobalStatusBar
 from app import theme
 from app.worker_safety import safe_worker
 
@@ -27,7 +28,6 @@ class HomeScreen(Screen):
     }
 
     #header {
-        dock: top;
         height: 2;
         text-align: center;
         background: $bg;
@@ -35,7 +35,6 @@ class HomeScreen(Screen):
     }
 
     #clock_bar {
-        dock: top;
         height: 1;
         background: $surface;
         content-align: center middle;
@@ -82,9 +81,9 @@ class HomeScreen(Screen):
     """)
 
     _terminal_width: int = 80
-    _system_status: tuple[bool, bool, bool] | None = None
 
     def compose(self):
+        yield GlobalStatusBar()
         yield Static("", id="header")
         yield Static("", id="clock_bar")
 
@@ -116,12 +115,6 @@ class HomeScreen(Screen):
         self._terminal_width = event.size.width
         self._apply_layout(event.size.width)
 
-    # ── StatusPanel posts this when service health is fetched ─────────────────
-
-    def on_status_panel_status_changed(self, event: StatusPanel.StatusChanged) -> None:
-        self._system_status = (event.backend_ok, event.mongodb_ok, event.rust_ok)
-        self._update_clock_bar()
-
     # ── Layout ────────────────────────────────────────────────────────────────
 
     def _apply_layout(self, width: int) -> None:
@@ -150,28 +143,10 @@ class HomeScreen(Screen):
         date_str = now.strftime("%A, %d %B %Y") if width >= 80 else now.strftime("%d/%m/%Y")
         time_str = now.strftime("%H:%M:%S")
 
-        if self._system_status is not None:
-            backend_ok, mongodb_ok, rust_ok = self._system_status
-
-            def _dot(ok: bool) -> str:
-                c = theme.LOW if ok else theme.CRITICAL
-                return f"[{c}]●[/{c}]"
-
-            dots = (
-                f"{_dot(backend_ok)} [{theme.MUTED}]Backend[/{theme.MUTED}]  "
-                f"{_dot(mongodb_ok)} [{theme.MUTED}]MongoDB[/{theme.MUTED}]  "
-                f"{_dot(rust_ok)} [{theme.MUTED}]Rust Engine[/{theme.MUTED}]"
-            )
-            self.query_one("#clock_bar").update(
-                f"[{theme.MUTED}]{date_str}[/{theme.MUTED}]"
-                f"   [{theme.ACCENT}]{time_str}[/{theme.ACCENT}]"
-                f"   {dots}"
-            )
-        else:
-            self.query_one("#clock_bar").update(
-                f"[{theme.MUTED}]{date_str}[/{theme.MUTED}]"
-                f"   [{theme.ACCENT}]{time_str}[/{theme.ACCENT}]"
-            )
+        self.query_one("#clock_bar").update(
+            f"[{theme.MUTED}]{date_str}[/{theme.MUTED}]"
+            f"   [{theme.ACCENT}]{time_str}[/{theme.ACCENT}]"
+        )
 
     # ── Events ────────────────────────────────────────────────────────────────
 

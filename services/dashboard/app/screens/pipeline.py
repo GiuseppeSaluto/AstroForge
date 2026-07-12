@@ -7,6 +7,7 @@ from textual import work
 from datetime import datetime
 
 from app.client.api_client import run_pipeline, get_pipeline_stats
+from app.widgets.global_status_bar import GlobalStatusBar
 from app import theme
 from app.worker_safety import safe_worker
 
@@ -19,7 +20,6 @@ class PipelineScreen(Screen):
     }
 
     #title {
-        dock: top;
         height: 2;
         content-align: center middle;
         text-style: bold;
@@ -75,6 +75,7 @@ class PipelineScreen(Screen):
     _pipeline_running: bool = False
 
     def compose(self):
+        yield GlobalStatusBar()
         yield Static("PIPELINE CONTROL", id="title")
 
         with Vertical(id="stats_container"):

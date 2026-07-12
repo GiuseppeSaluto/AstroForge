@@ -97,23 +97,23 @@ class AstroForgeDashboard(App):
 
     def action_show_home(self) -> None:
         """Navigate to home screen."""
-        self.push_screen("home")
+        self.switch_screen("home")
 
     def action_show_asteroids(self) -> None:
         """Navigate to asteroids screen."""
-        self.push_screen("asteroids")
+        self.switch_screen("asteroids")
 
     def action_show_charts(self) -> None:
         """Navigate to charts screen."""
-        self.push_screen("charts")
+        self.switch_screen("charts")
 
     def action_show_pipeline(self) -> None:
         """Navigate to pipeline control screen."""
-        self.push_screen("pipeline")
+        self.switch_screen("pipeline")
 
     def action_show_logs(self) -> None:
         """Navigate to logs screen."""
-        self.push_screen("logs")
+        self.switch_screen("logs")
 
 
 def run():

@@ -10,6 +10,7 @@ from textual.widgets import Button, Static
 from app.worker_safety import safe_worker
 
 from app.client.api_client import get_nasa_asteroids
+from app.widgets.global_status_bar import GlobalStatusBar
 from app import theme
 
 try:
@@ -169,7 +170,6 @@ class ChartsScreen(Screen):
     }
 
     #title {
-        dock: top;
         height: 2;
         content-align: center middle;
         text-style: bold;
@@ -241,6 +241,7 @@ class ChartsScreen(Screen):
         self._start: date = self._end - timedelta(days=7)
 
     def compose(self):
+        yield GlobalStatusBar()
         yield Static("NEO CHARTS", id="title")
 
         with Horizontal(id="controls"):

@@ -4,6 +4,7 @@ from textual.containers import Vertical, Horizontal
 from textual import work
 
 from app.client.api_client import get_logs
+from app.widgets.global_status_bar import GlobalStatusBar
 from app import theme
 from app.worker_safety import safe_worker
 
@@ -17,7 +18,6 @@ class LogsScreen(Screen):
     }
 
     #title {
-        dock: top;
         height: 2;
         content-align: center middle;
         text-style: bold;
@@ -43,6 +43,7 @@ class LogsScreen(Screen):
 
     def compose(self):
         """Compose logs screen layout."""
+        yield GlobalStatusBar()
         yield Static("RECENT LOGS", id="title")
 
         self.log_display = RichLog(

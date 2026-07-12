@@ -6,6 +6,7 @@ from textual import work
 
 from app.client.api_client import get_analyzed_asteroids
 from app.screens.asteroid_detail import AsteroidDetailScreen
+from app.widgets.global_status_bar import GlobalStatusBar
 from app import theme
 from app.worker_safety import safe_worker
 
@@ -22,7 +23,6 @@ class AsteroidsScreen(Screen):
     }
 
     #title {
-        dock: top;
         height: 2;
         content-align: center middle;
         text-style: bold;
@@ -86,6 +86,7 @@ class AsteroidsScreen(Screen):
         self._active_filter: str = "All"
 
     def compose(self) -> ComposeResult:
+        yield GlobalStatusBar()
         yield Static("ANALYZED ASTEROIDS", id="title")
 
         with Horizontal(id="filter_row"):
