@@ -185,35 +185,6 @@ def get_logs(limit: int = 100) -> List[Dict[str, Any]]:
         logger.error(f"Failed to get logs: {e}")
         return []
 
-def get_asteroids(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    limit: int = 100
-) -> List[Dict[str, Any]]:
-    """Get NASA asteroids (not analyzed yet)."""
-    params = {"limit": limit}
-    if start_date:
-        params["start_date"] = start_date
-    if end_date:
-        params["end_date"] = end_date
-
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/nasa/neo/feed",
-            params=params,
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        if isinstance(data, list):
-            return data
-        return data.get("asteroids", data.get("near_earth_objects", []))
-    except requests.RequestException as e:
-        logger.error(f"Failed to get asteroids: {e}")
-        return []
-
-
 def get_asteroid_detail(asteroid_id: str) -> dict:
     """Fetch full asteroid detail (close approaches + orbital data) from NASA via Python API."""
     try:
