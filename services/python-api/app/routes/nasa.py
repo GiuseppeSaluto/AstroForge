@@ -1,7 +1,8 @@
-from datetime import date, timedelta, datetime, timezone
-from flask import Blueprint, jsonify, request, current_app
+from datetime import date, timedelta
+from flask import Blueprint, jsonify, request
 from requests.exceptions import RequestException, HTTPError
 
+from app.core.ingestion import IngestionPipeline
 from app.core.nasa_client import get_neo_feed, get_neo_feed_chunked, get_asteroid_detail
 from app.utils.logger import logger
 
@@ -67,36 +68,13 @@ def save_neo_data():
         start_date = request.args.get("start_date")
         end_date = request.args.get("end_date")
 
-        feed = get_neo_feed(start_date=start_date, end_date=end_date)
-        if not feed or "near_earth_objects" not in feed:
-            return jsonify({"error": "Invalid feed from NASA"}), 502
+        result = IngestionPipeline.ingest_neo_feed(start_date=start_date, end_date=end_date)
 
-        mongo = current_app.extensions.get("mongo")
-        if not mongo:
-            raise RuntimeError("Mongo extension not initialized.")
+        logger.info(f"neo/save: {result['saved']} saved, {result['skipped']} skipped")
+        return jsonify({"status": "success", "stored": result["saved"], "skipped": result["skipped"]}), 200
 
-        saved = 0
-        skipped = 0
-        for date_str, asteroids in feed["near_earth_objects"].items():
-            for asteroid in asteroids:
-                is_new = mongo.save_raw_asteroid(date_str, asteroid)
-                if is_new:
-                    saved += 1
-                else:
-                    skipped += 1
-
-        mongo.save_nasa_feed({
-            "retrieved_at": datetime.now(timezone.utc),
-            "feed_start_date": start_date,
-            "feed_end_date": end_date,
-            "total_in_feed": saved + skipped,
-            "saved": saved,
-            "skipped": skipped,
-        })
-
-        logger.info(f"neo/save: {saved} saved, {skipped} skipped")
-        return jsonify({"status": "success", "stored": saved, "skipped": skipped}), 200
-
+    except ValueError:
+        return jsonify({"error": "Invalid feed from NASA"}), 502
     except RequestException as e:
         logger.error(f"NASA API request failed: {e}")
         return jsonify({"error": "NASA API unreachable"}), 503

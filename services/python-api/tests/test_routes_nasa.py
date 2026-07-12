@@ -99,33 +99,42 @@ class TestNeoFeed:
 
 
 class TestSaveNeoData:
-    def test_saves_new_and_skips_existing(self, mocker):
-        mongo = MagicMock()
-        mongo.save_raw_asteroid.side_effect = [True, False]
-        client = make_app(mongo=mongo).test_client()
-        feed = {"near_earth_objects": {"2025-01-01": [{"id": "1"}, {"id": "2"}]}}
-        mocker.patch("app.routes.nasa.get_neo_feed", return_value=feed)
+    """IngestionPipeline's own orchestration logic (dedup bookkeeping, feed-log
+    fields) is covered in test_ingestion.py; these tests cover the route
+    layer's own job: query param passthrough and HTTP status mapping."""
+
+    def test_returns_stored_and_skipped_counts(self, mocker):
+        mocker.patch(
+            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            return_value={"saved": 1, "skipped": 1, "total_in_feed": 2},
+        )
+        client = make_app().test_client()
 
         response = client.post("/nasa/neo/save?start_date=2025-01-01&end_date=2025-01-01")
 
         assert response.status_code == 200
         assert response.get_json() == {"status": "success", "stored": 1, "skipped": 1}
-        mongo.save_nasa_feed.assert_called_once()
 
     def test_invalid_feed_returns_502(self, mocker):
-        client = make_app(mongo=MagicMock()).test_client()
-        mocker.patch("app.routes.nasa.get_neo_feed", return_value={})
+        mocker.patch(
+            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            side_effect=ValueError("Invalid feed from NASA"),
+        )
+        client = make_app().test_client()
 
         response = client.post("/nasa/neo/save")
 
         assert response.status_code == 502
 
     def test_mongo_not_initialized_returns_500(self, mocker):
-        # The RuntimeError raised for a missing mongo extension is no longer
-        # caught locally — this checks it reaches the global RuntimeError
-        # handler (distinct message) rather than a generic 500 fallback.
-        client = make_app(mongo=None).test_client()
-        mocker.patch("app.routes.nasa.get_neo_feed", return_value={"near_earth_objects": {}})
+        # RuntimeError isn't caught locally by the route — this checks it
+        # reaches the global RuntimeError handler (distinct message) rather
+        # than a generic 500 fallback.
+        mocker.patch(
+            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            side_effect=RuntimeError("MongoDB extension not initialized"),
+        )
+        client = make_app().test_client()
 
         response = client.post("/nasa/neo/save")
 
@@ -133,8 +142,11 @@ class TestSaveNeoData:
         assert response.get_json()["error"] == "Pipeline not properly initialized"
 
     def test_request_exception_returns_503(self, mocker):
-        client = make_app(mongo=MagicMock()).test_client()
-        mocker.patch("app.routes.nasa.get_neo_feed", side_effect=RequestException("down"))
+        mocker.patch(
+            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            side_effect=RequestException("down"),
+        )
+        client = make_app().test_client()
 
         response = client.post("/nasa/neo/save")
 
