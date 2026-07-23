@@ -152,6 +152,37 @@ API_BASE_URL=https://your-deployed-api.fly.dev python -m app.main
 
 ---
 
+## Screenshots
+
+<table>
+<tr>
+<td><strong>Home</strong> — system status, mission stats, top threats</td>
+<td><strong>Asteroids</strong> — analyzed risk table, filterable</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/home.png" width="420"></td>
+<td><img src="docs/screenshots/asteroids.png" width="420"></td>
+</tr>
+<tr>
+<td><strong>Charts</strong> — miss distance, size &amp; velocity distribution</td>
+<td><strong>Pipeline</strong> — trigger analysis, live run log</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/charts.png" width="420"></td>
+<td><img src="docs/screenshots/pipeline.png" width="420"></td>
+</tr>
+<tr>
+<td><strong>Asteroid detail</strong> — risk analysis, close approaches, orbital data</td>
+<td><strong>Logs</strong> — real-time structured log viewer</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/asteroid-detail.png" width="420"></td>
+<td><img src="docs/screenshots/logs.png" width="420"></td>
+</tr>
+</table>
+
+---
+
 ## Project Structure
 
 ```
