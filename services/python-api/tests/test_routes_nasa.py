@@ -99,13 +99,13 @@ class TestNeoFeed:
 
 
 class TestSaveNeoData:
-    """IngestionPipeline's own orchestration logic (dedup bookkeeping, feed-log
+    """ingest_neo_feed's own logic (dedup bookkeeping, feed-log
     fields) is covered in test_ingestion.py; these tests cover the route
     layer's own job: query param passthrough and HTTP status mapping."""
 
     def test_returns_stored_and_skipped_counts(self, mocker):
         mocker.patch(
-            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            "app.routes.nasa.ingest_neo_feed",
             return_value={"saved": 1, "skipped": 1, "total_in_feed": 2},
         )
         client = make_app().test_client()
@@ -117,7 +117,7 @@ class TestSaveNeoData:
 
     def test_invalid_feed_returns_502(self, mocker):
         mocker.patch(
-            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            "app.routes.nasa.ingest_neo_feed",
             side_effect=ValueError("Invalid feed from NASA"),
         )
         client = make_app().test_client()
@@ -131,7 +131,7 @@ class TestSaveNeoData:
         # reaches the global RuntimeError handler (distinct message) rather
         # than a generic 500 fallback.
         mocker.patch(
-            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            "app.routes.nasa.ingest_neo_feed",
             side_effect=RuntimeError("MongoDB extension not initialized"),
         )
         client = make_app().test_client()
@@ -143,7 +143,7 @@ class TestSaveNeoData:
 
     def test_request_exception_returns_503(self, mocker):
         mocker.patch(
-            "app.routes.nasa.IngestionPipeline.ingest_neo_feed",
+            "app.routes.nasa.ingest_neo_feed",
             side_effect=RequestException("down"),
         )
         client = make_app().test_client()
@@ -151,6 +151,18 @@ class TestSaveNeoData:
         response = client.post("/nasa/neo/save")
 
         assert response.status_code == 503
+        # The blueprint's NASA handler must win over the app-wide
+        # RequestException handler ("Rust Engine unreachable").
+        assert response.get_json()["error"] == "Failed to connect to NASA API"
+
+    def test_upstream_rate_limit_returns_429(self, mocker):
+        # Used to be swallowed into a 503 by a local `except RequestException`.
+        mocker.patch("app.routes.nasa.ingest_neo_feed", side_effect=make_http_error(429))
+        client = make_app().test_client()
+
+        response = client.post("/nasa/neo/save")
+
+        assert response.status_code == 429
 
 
 class TestListAsteroids:

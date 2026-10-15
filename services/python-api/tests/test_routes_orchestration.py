@@ -1,7 +1,7 @@
 """
 Tests for app.routes.orchestration (the /pipeline blueprint).
 
-AnalysisPipeline's own orchestration logic is covered in test_pipeline.py;
+app.core.pipeline's own orchestration logic is covered in test_pipeline.py;
 these tests cover the route layer's own job: query param validation,
 Mongo aggregation result shaping, and HTTP status mapping.
 """
@@ -26,7 +26,7 @@ class TestAnalyzeNeoPipeline:
     def test_runs_pipeline_and_returns_stats(self, mocker):
         stats = {"total_fetched": 2, "processed": 2, "failed": 0, "skipped": 0}
         mocker.patch(
-            "app.routes.orchestration.AnalysisPipeline.analyze_unprocessed_asteroids",
+            "app.routes.orchestration.analyze_unprocessed_asteroids",
             return_value=stats,
         )
         client = make_app().test_client()
@@ -48,7 +48,7 @@ class TestAnalyzeSingleNeo:
     def test_returns_risk_analysis(self, mocker):
         result = {"asteroid_id": "1", "risk_level": "Low"}
         mocker.patch(
-            "app.routes.orchestration.AnalysisPipeline.analyze_single_asteroid",
+            "app.routes.orchestration.analyze_single_asteroid",
             return_value=result,
         )
         client = make_app().test_client()
@@ -60,7 +60,7 @@ class TestAnalyzeSingleNeo:
 
     def test_not_found_returns_404(self, mocker):
         mocker.patch(
-            "app.routes.orchestration.AnalysisPipeline.analyze_single_asteroid",
+            "app.routes.orchestration.analyze_single_asteroid",
             side_effect=ValueError("Asteroid 1 not found in database"),
         )
         client = make_app().test_client()

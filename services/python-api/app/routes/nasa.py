@@ -2,13 +2,32 @@ from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 from requests.exceptions import RequestException, HTTPError
 
-from app.core.ingestion import IngestionPipeline
+from app.core.ingestion import ingest_neo_feed
 from app.core.nasa_client import get_neo_feed, get_neo_feed_chunked, get_asteroid_detail
 from app.utils.logger import logger
 
 nasa_bp = Blueprint("nasa", __name__, url_prefix="/nasa")
 
 _MAX_DATE_RANGE_DAYS = 365
+
+
+@nasa_bp.errorhandler(RequestException)
+def handle_nasa_error(e: RequestException):
+    """NASA failures for every /nasa route. Registered on the blueprint, so
+    Flask picks it over the app-wide RequestException handler (which is
+    about the Rust Engine). HTTPError is a RequestException subclass, so
+    it lands here too and gets its upstream status mapped."""
+    if isinstance(e, HTTPError):
+        status = e.response.status_code if e.response is not None else 502
+        if status == 404:
+            return jsonify({"error": "Asteroid not found on NASA"}), 404
+        if status == 429:
+            return jsonify({"error": "NASA API rate limit reached, retry later"}), 429
+        logger.error(f"NASA API HTTP error: {e}")
+        return jsonify({"error": "NASA API returned an error"}), 502
+
+    logger.error(f"NASA API unreachable: {e}")
+    return jsonify({"error": "Failed to connect to NASA API"}), 503
 
 
 def _normalize_asteroid(neo: dict, approach_date: str) -> dict:
@@ -35,9 +54,9 @@ def _normalize_asteroid(neo: dict, approach_date: str) -> dict:
         "diameter_km_min": round(diam_min, 4),
         "diameter_km_max": round(diam_max, 4),
         "diameter_km_avg": round((diam_min + diam_max) / 2, 4),
-        "miss_distance_km": round(float(miss.get("kilometers", 0)), 2),
-        "miss_distance_lunar": round(float(miss.get("lunar", 0)), 4),
-        "velocity_kps": round(float(velocity.get("kilometers_per_second", 0)), 4),
+        "miss_distance_km": round(float(miss.get("kilometers") or 0), 2),
+        "miss_distance_lunar": round(float(miss.get("lunar") or 0), 4),
+        "velocity_kps": round(float(velocity.get("kilometers_per_second") or 0), 4),
         "close_approach_date": closest.get("close_approach_date", approach_date),
         "orbiting_body": closest.get("orbiting_body", "Earth"),
     }
@@ -49,37 +68,23 @@ def neo_feed():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    try:
-        data = get_neo_feed(start_date=start_date, end_date=end_date)
-        return jsonify(data), 200
-    except HTTPError as e:
-        status = e.response.status_code if e.response is not None else 502
-        if status == 429:
-            return jsonify({"error": "NASA API rate limit reached, retry later"}), 429
-        logger.error(f"NASA API HTTP error: {e}")
-        return jsonify({"error": "NASA API returned an error", "details": str(e)}), 502
-    except RequestException as e:
-        logger.error(f"NASA API network error: {e}")
-        return jsonify({"error": "Failed to connect to NASA API", "details": str(e)}), 503
+    data = get_neo_feed(start_date=start_date, end_date=end_date)
+    return jsonify(data), 200
 
 
 @nasa_bp.route("/neo/save", methods=["POST"])
 def save_neo_data():
     logger.info("POST /nasa/neo/save")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
     try:
-        start_date = request.args.get("start_date")
-        end_date = request.args.get("end_date")
-
-        result = IngestionPipeline.ingest_neo_feed(start_date=start_date, end_date=end_date)
-
-        logger.info(f"neo/save: {result['saved']} saved, {result['skipped']} skipped")
-        return jsonify({"status": "success", "stored": result["saved"], "skipped": result["skipped"]}), 200
-
+        result = ingest_neo_feed(start_date=start_date, end_date=end_date)
     except ValueError:
         return jsonify({"error": "Invalid feed from NASA"}), 502
-    except RequestException as e:
-        logger.error(f"NASA API request failed: {e}")
-        return jsonify({"error": "NASA API unreachable"}), 503
+
+    logger.info(f"neo/save: {result['saved']} saved, {result['skipped']} skipped")
+    return jsonify({"status": "success", "stored": result["saved"], "skipped": result["skipped"]}), 200
 
 
 @nasa_bp.route("/asteroids", methods=["GET"])
@@ -137,20 +142,10 @@ def list_asteroids():
         return jsonify({"error": "order must be 'asc' or 'desc'"}), 400
 
     # --- fetch ---
-    try:
-        feed = get_neo_feed_chunked(
-            start_date=start.strftime("%Y-%m-%d"),
-            end_date=end.strftime("%Y-%m-%d"),
-        )
-    except HTTPError as e:
-        status = e.response.status_code if e.response is not None else 502
-        if status == 429:
-            return jsonify({"error": "NASA API rate limit reached, retry later"}), 429
-        logger.error(f"NASA API HTTP error: {e}")
-        return jsonify({"error": "NASA API returned an error"}), 502
-    except RequestException as e:
-        logger.error(f"NASA API unreachable: {e}")
-        return jsonify({"error": "Failed to connect to NASA API"}), 503
+    feed = get_neo_feed_chunked(
+        start_date=start.strftime("%Y-%m-%d"),
+        end_date=end.strftime("%Y-%m-%d"),
+    )
 
     # --- normalize & deduplicate by asteroid id (keep smallest miss distance) ---
     seen: dict[str, dict] = {}
@@ -201,19 +196,7 @@ def asteroid_detail(asteroid_id: str):
     """
     logger.info(f"GET /nasa/asteroids/{asteroid_id}")
 
-    try:
-        data = get_asteroid_detail(asteroid_id)
-    except HTTPError as e:
-        status = e.response.status_code if e.response is not None else 502
-        if status == 404:
-            return jsonify({"error": f"Asteroid {asteroid_id} not found"}), 404
-        if status == 429:
-            return jsonify({"error": "NASA API rate limit reached, retry later"}), 429
-        logger.error(f"NASA API HTTP error for {asteroid_id}: {e}")
-        return jsonify({"error": "NASA API returned an error"}), 502
-    except RequestException as e:
-        logger.error(f"NASA API unreachable for asteroid {asteroid_id}: {e}")
-        return jsonify({"error": "Failed to connect to NASA API"}), 503
+    data = get_asteroid_detail(asteroid_id)
 
     diameter = data.get("estimated_diameter") or {}
     diameter_km = diameter.get("kilometers") or {}

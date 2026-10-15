@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from flask import Flask
 from app.core.mongodb import MongoDBClient
 from app.core.config import DEBUG, MONGO_URI, MONGO_DB_NAME
-from app.core.ingestion import IngestionPipeline
+from app.core.ingestion import ingest_neo_feed
 
 # API routes
 from app.routes.nasa import nasa_bp
@@ -24,7 +24,7 @@ def _seed_asteroids_on_startup(app: Flask) -> None:
             end_str = end_date.strftime("%Y-%m-%d")
 
             logger.info(f"Startup seed: fetching NEO data {start_str} → {end_str}...")
-            result = IngestionPipeline.ingest_neo_feed(start_date=start_str, end_date=end_str)
+            result = ingest_neo_feed(start_date=start_str, end_date=end_str)
 
             logger.info(
                 f"Startup seed complete: {result['saved']} new asteroids saved, "

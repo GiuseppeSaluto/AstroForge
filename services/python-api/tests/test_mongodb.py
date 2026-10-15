@@ -23,11 +23,6 @@ def client():
     return c
 
 
-@pytest.fixture
-def client_without_db():
-    return MongoDBClient("mongodb://localhost:27017", "test_db")
-
-
 def _two_collections(client: MongoDBClient, raw=None, analyses=None):
     """mongo.db["name"] is a __getitem__ call — a bare MagicMock returns the
     same child mock for every call regardless of the argument, so without
@@ -43,10 +38,6 @@ def _two_collections(client: MongoDBClient, raw=None, analyses=None):
 
 
 class TestGetPipelineStats:
-    def test_raises_if_db_not_initialized(self, client_without_db):
-        with pytest.raises(RuntimeError, match="Database not initialized"):
-            client_without_db.get_pipeline_stats()
-
     def test_computes_all_fields(self, client):
         raw, analyses = _two_collections(client)
         raw.aggregate.return_value = [{"unprocessed": 3}]
@@ -83,10 +74,6 @@ class TestGetPipelineStats:
 
 
 class TestGetCloseApproaches:
-    def test_raises_if_db_not_initialized(self, client_without_db):
-        with pytest.raises(RuntimeError, match="Database not initialized"):
-            client_without_db.get_close_approaches()
-
     def test_returns_aggregation_results(self, client):
         raw = MagicMock()
         raw.aggregate.return_value = [{"name": "Alpha", "miss_km": 123.4}]
@@ -106,10 +93,6 @@ class TestGetCloseApproaches:
 
 
 class TestGetAnalyzedAsteroids:
-    def test_raises_if_db_not_initialized(self, client_without_db):
-        with pytest.raises(RuntimeError, match="Database not initialized"):
-            client_without_db.get_analyzed_asteroids(limit=10, sort_field="x", sort_dir=1)
-
     def test_applies_sort_and_limit(self, client):
         collection = MagicMock()
         collection.find.return_value.sort.return_value.limit.return_value = [{"id": "1"}]

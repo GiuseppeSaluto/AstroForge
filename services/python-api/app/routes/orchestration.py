@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
-from flask import current_app
-from app.core.pipeline import AnalysisPipeline
+from app.core.mongodb import get_mongo
+from app.core.pipeline import analyze_single_asteroid, analyze_unprocessed_asteroids
 from app.core.rust_client import check_rust_health
 from app.utils.logger import logger
 
@@ -15,7 +15,7 @@ def analyze_neo_pipeline():
     if limit < 1 or limit > 1000:
         return jsonify({"error": "limit must be between 1 and 1000"}), 400
 
-    stats = AnalysisPipeline.analyze_unprocessed_asteroids(limit=limit)
+    stats = analyze_unprocessed_asteroids(limit=limit)
 
     logger.info(f"Pipeline completed successfully: {stats}")
 
@@ -32,7 +32,7 @@ def analyze_single_neo(asteroid_id: str):
     logger.info(f"Received request: POST /pipeline/neo/analyze/{asteroid_id}")
 
     try:
-        result = AnalysisPipeline.analyze_single_asteroid(asteroid_id)
+        result = analyze_single_asteroid(asteroid_id)
 
         return (
             jsonify(
@@ -63,23 +63,10 @@ def analyze_single_neo(asteroid_id: str):
 def pipeline_status():
     logger.info("Received request: GET /pipeline/status")
 
+    # Any failure here (Mongo not registered, ping failing) means
+    # "unhealthy" with a 503, not the global handler's 500.
     try:
-        from flask import current_app
-
-        mongo = current_app.extensions.get("mongo")
-
-        if not mongo:
-            return (
-                jsonify(
-                    {
-                        "status": "unhealthy",
-                        "reason": "MongoDB not initialized",
-                    }
-                ),
-                503,
-            )
-
-        mongo.ping()
+        get_mongo().ping()
 
         # Check Rust Engine health
         rust_status = check_rust_health()
@@ -106,9 +93,7 @@ def pipeline_stats():
 
     logger.info("Received request: GET /pipeline/stats")
 
-    mongo = current_app.extensions.get("mongo")
-    if not mongo:
-        return jsonify({"status": "error", "reason": "MongoDB not initialized"}), 500
+    mongo = get_mongo()
 
     stats = mongo.get_pipeline_stats()
     last_run = stats["last_pipeline_run"]
@@ -126,9 +111,7 @@ def pipeline_stats():
 def close_approaches():
     """NEOs sorted by miss distance, enriched with risk data from the Rust Engine."""
     limit = request.args.get("limit", default=10, type=int)
-    mongo = current_app.extensions.get("mongo")
-    if not mongo:
-        return jsonify({"status": "error", "reason": "MongoDB not initialized"}), 500
+    mongo = get_mongo()
 
     results = mongo.get_close_approaches(limit=limit)
 
@@ -150,9 +133,7 @@ def close_approaches():
 @orchestration_bp.route("/analysis/asteroids", methods=["GET"])
 def list_analyzed_asteroids():
 
-    mongo = current_app.extensions.get("mongo")
-    if not mongo:
-        return jsonify({"error": "MongoDB not initialized"}), 500
+    mongo = get_mongo()
 
     limit = request.args.get("limit", default=200, type=int)
     sort_by = request.args.get("sort", default="risk_score", type=str)
