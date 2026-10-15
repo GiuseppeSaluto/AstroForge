@@ -46,7 +46,6 @@ class AnalysisPipeline:
 
             # Send the entire batch to the Rust Engine in a single request
             dto_list = [a.to_dto_dict() for a in asteroids]
-            id_to_asteroid = {a.id: a for a in asteroids}
 
             try:
                 batch = process_asteroid_batch_with_rust(dto_list)

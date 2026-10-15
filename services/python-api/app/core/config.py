@@ -11,7 +11,6 @@ NASA_API_KEY: str = _nasa_key
 
 NASA_BASE_URL = "https://api.nasa.gov"
 
-NASA_APOD_ENDPOINT = "/planetary/apod"
 NASA_NEO_FEED_ENDPOINT = "/neo/rest/v1/feed"
 NASA_NEO_LOOKUP_ENDPOINT = "/neo/rest/v1/neo/"
 

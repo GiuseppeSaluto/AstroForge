@@ -110,7 +110,7 @@ class TestPipelineStatus:
 
         assert response.status_code == 503
 
-    def test_mongo_error_returns_503(self, mocker):
+    def test_mongo_error_returns_503(self):
         mongo = MagicMock()
         mongo.ping.side_effect = RuntimeError("db down")
         client = make_app(mongo=mongo).test_client()

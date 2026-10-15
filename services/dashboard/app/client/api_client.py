@@ -8,7 +8,6 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:5001")
-RUST_ENGINE_URL = os.getenv("RUST_ENGINE_URL", "http://localhost:8080")
 
 DEFAULT_TIMEOUT = 15
 REQUEST_TIMEOUT = 20

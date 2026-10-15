@@ -1,7 +1,6 @@
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.errors import PyMongoError
-from flask import current_app
 from datetime import datetime, timezone
 
 from app.utils.logger import logger
@@ -126,28 +125,6 @@ class MongoDBClient:
         if self.client is None:
             raise RuntimeError("Database not initialized")
         self.client.admin.command("ping")
-
-    def count_raw_asteroids(self) -> int:
-        """Return the total number of raw asteroids stored in the DB."""
-        if self.db is None:
-            raise RuntimeError("Database not initialized")
-        try:
-            return self.db["asteroids_raw"].count_documents({})
-        except PyMongoError as e:
-            logger.error(f"Failed to count raw asteroids: {e}")
-            raise
-
-    def get_raw_asteroids_by_date(self, date: str) -> list[dict]:
-        if self.db is None:
-            raise RuntimeError("Database not initialized")
-
-        try:
-            collection = self.db["asteroids_raw"]
-            cursor = collection.find({"date": date})
-            return list(cursor)
-        except PyMongoError as e:
-            logger.error(f"Failed to fetch raw asteroids for date {date}: {e}")
-            raise
 
     def get_raw_asteroid_by_id(self, asteroid_id: str) -> dict | None:
         if self.db is None:
@@ -301,8 +278,3 @@ class MongoDBClient:
         except PyMongoError as e:
             logger.error(f"Failed to fetch analyzed asteroids: {e}")
             raise
-
-    def close(self):
-        if self.client:
-            self.client.close()
-            logger.info("MongoDB connection closed")

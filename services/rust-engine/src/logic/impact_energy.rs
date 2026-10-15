@@ -1,23 +1,9 @@
 use std::f64::consts::PI;
 
-// Kept for future density differentiation (e.g. using absolute_magnitude_h as proxy).
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
-pub enum AsteroidDensity {
-    Carbonaceous, // ~1300 kg/m³
-    Silicaceous,  // ~2700 kg/m³ (NEO default)
-    Metallic,     // ~5300 kg/m³
-}
-
-impl AsteroidDensity {
-    pub fn as_value(&self) -> f64 {
-        match self {
-            AsteroidDensity::Carbonaceous => 1300.0,
-            AsteroidDensity::Silicaceous => 2700.0,
-            AsteroidDensity::Metallic => 5300.0,
-        }
-    }
-}
+// ponytail: one density for every NEO (silicaceous, the NEO default).
+// Carbonaceous ~1300 and metallic ~5300 kg/m³ would need a per-asteroid
+// type estimate first; reintroduce an enum only when that input exists.
+const SILICACEOUS_DENSITY_KG_M3: f64 = 2700.0;
 
 pub struct ImpactPhysics;
 
@@ -32,8 +18,8 @@ impl ImpactPhysics {
         (4.0 / 3.0) * PI * r_m.powi(3)
     }
 
-    pub fn mass_from_volume(volume_m3: f64, density: AsteroidDensity) -> f64 {
-        volume_m3 * density.as_value()
+    pub fn mass_from_volume(volume_m3: f64) -> f64 {
+        volume_m3 * SILICACEOUS_DENSITY_KG_M3
     }
 
     pub fn kinetic_energy_joules(mass_kg: f64, velocity_kps: f64) -> f64 {
@@ -200,7 +186,7 @@ mod tests {
 
     fn kinetic_energy_for(diameter_km: f64, velocity_kps: f64) -> f64 {
         let vol = ImpactPhysics::volume_from_diameter_km(diameter_km);
-        let mass = ImpactPhysics::mass_from_volume(vol, AsteroidDensity::Silicaceous);
+        let mass = ImpactPhysics::mass_from_volume(vol);
         ImpactPhysics::kinetic_energy_joules(mass, velocity_kps)
     }
 }

@@ -3,7 +3,7 @@ use crate::domain::asteroid::Asteroid;
 use crate::api::error::map_domain_error;
 use crate::domain::risk::RiskResult;
 use crate::dto::asteroid_dto::AsteroidDTO;
-use crate::logic::impact_energy::{AsteroidDensity, ImpactPhysics};
+use crate::logic::impact_energy::ImpactPhysics;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -22,7 +22,7 @@ pub struct BatchResponse {
 
 fn compute_risk(asteroid: &Asteroid) -> RiskResult {
     let volume_m3 = ImpactPhysics::volume_from_diameter_km(asteroid.diameter_km);
-    let mass = ImpactPhysics::mass_from_volume(volume_m3, AsteroidDensity::Silicaceous);
+    let mass = ImpactPhysics::mass_from_volume(volume_m3);
     let energy_joules = ImpactPhysics::kinetic_energy_joules(mass, asteroid.velocity_kps);
     let energy_megatons = ImpactPhysics::joules_to_megatons(energy_joules);
 

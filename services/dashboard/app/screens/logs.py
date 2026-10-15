@@ -1,6 +1,6 @@
 from textual.screen import Screen
 from textual.widgets import Static, Button, RichLog
-from textual.containers import Vertical, Horizontal
+from textual.containers import Horizontal
 from textual import work
 
 from app.client.api_client import get_logs

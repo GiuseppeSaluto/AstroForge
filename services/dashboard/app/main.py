@@ -1,7 +1,6 @@
 from textual.app import App
 from textual.binding import Binding
 from textual.theme import Theme
-from textual.widgets import Header, Footer
 
 from app.screens.home import HomeScreen
 from app.screens.asteroids import AsteroidsScreen

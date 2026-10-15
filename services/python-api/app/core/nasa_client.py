@@ -6,7 +6,6 @@ from datetime import date, timedelta
 from app.core.config import (
     NASA_API_KEY,
     NASA_BASE_URL,
-    NASA_APOD_ENDPOINT,
     NASA_NEO_FEED_ENDPOINT,
     NASA_NEO_LOOKUP_ENDPOINT,
     REQUEST_TIMEOUT,
@@ -35,16 +34,6 @@ def _get_with_retry(url: str, params: Dict, max_retries: int = 3) -> requests.Re
         logger.warning(f"NASA API rate limit hit, retrying in {wait}s ({attempt + 1}/{max_retries})")
         time.sleep(wait)
     raise requests.exceptions.HTTPError("NASA API rate limit exceeded after all retries")
-
-
-def get_apod(date_str: Optional[str] = None) -> Dict[str, Any]:
-    params = {}
-    if date_str:
-        params["date"] = date_str
-    url, query = _build_nasa_url(NASA_APOD_ENDPOINT, params)
-    logger.info(f"Calling NASA APOD: {url}")
-    response = _get_with_retry(url, query)
-    return response.json()
 
 
 def get_neo_feed(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
