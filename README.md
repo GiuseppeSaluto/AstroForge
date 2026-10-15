@@ -23,7 +23,7 @@ NASA NeoWS API
             ▼
 ┌─────────────────────────────────┐
 │  Rust Engine (Axum · port 8080)  │  ← impact energy, risk scoring
-│   /api/process/asteroid          │
+│   /api/process/batch             │
 └───────────┬─────────────────────┘
             │  persist
             ▼
@@ -119,7 +119,6 @@ Full request/response examples live in `docs/`:
 | `GET /nasa/neo/feed` | Raw NASA NeoWS feed proxy (max 7-day window) |
 | `POST /nasa/neo/save` | Fetch + persist a feed window to MongoDB (deduplicated) |
 | `POST /pipeline/neo/analyze` | Run Rust risk analysis on all unprocessed asteroids |
-| `POST /pipeline/neo/analyze/<id>` | Analyze a single stored asteroid |
 | `GET /pipeline/status` | Health check — MongoDB + Rust Engine connectivity |
 | `GET /pipeline/stats` | Pipeline statistics (unprocessed, analyzed, high-risk counts) |
 | `GET /pipeline/analysis/asteroids` | List analyzed asteroids, sorted by risk/energy/date |
@@ -131,8 +130,7 @@ Full request/response examples live in `docs/`:
 | Endpoint | Description |
 |---|---|
 | `GET /api/health` | Liveness check |
-| `POST /api/process/asteroid` | Impact-physics risk analysis for one asteroid |
-| `POST /api/process/batch` | Same, for a batch of 1–500 asteroids |
+| `POST /api/process/batch` | Impact-physics risk analysis for 1–500 asteroids |
 
 ---
 

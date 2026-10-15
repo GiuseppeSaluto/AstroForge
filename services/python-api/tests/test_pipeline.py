@@ -10,7 +10,7 @@ import pytest
 from flask import Flask
 from requests.exceptions import RequestException
 
-from app.core.pipeline import analyze_single_asteroid, analyze_unprocessed_asteroids
+from app.core.pipeline import analyze_unprocessed_asteroids
 from app.core.rust_client import BatchResult
 from app.models.asteroid import Asteroid
 
@@ -19,13 +19,10 @@ def make_asteroid(asteroid_id: str) -> Asteroid:
     return Asteroid(
         id=asteroid_id,
         name=f"Asteroid {asteroid_id}",
-        absolute_magnitude_h=20.0,
         diameter_km=0.3,
         velocity_kps=10.0,
         distance_km=100_000.0,
         is_potentially_hazardous=False,
-        close_approach_date="2025-01-01",
-        orbiting_body="Earth",
     )
 
 
@@ -123,7 +120,7 @@ class TestAnalyzeUnprocessedAsteroids:
 
         assert stats == {"total_fetched": 2, "processed": 1, "failed": 0, "skipped": 1}
 
-    def test_rust_engine_failure_marks_all_fetched_as_failed(self, app_context, mock_mongo, mocker):
+    def test_rust_engine_failure_propagates_and_saves_nothing(self, app_context, mock_mongo, mocker):
         mock_mongo.get_unprocessed_asteroids.return_value = [make_raw_doc("1"), make_raw_doc("2")]
         mocker.patch(
             "app.core.pipeline.map_mongo_document_to_asteroid",
@@ -134,9 +131,9 @@ class TestAnalyzeUnprocessedAsteroids:
             side_effect=RequestException("connection refused"),
         )
 
-        stats = analyze_unprocessed_asteroids()
+        with pytest.raises(RequestException):
+            analyze_unprocessed_asteroids()
 
-        assert stats == {"total_fetched": 2, "processed": 0, "failed": 2, "skipped": 0}
         mock_mongo.save_analysis_result.assert_not_called()
 
     def test_mongo_save_failure_for_one_asteroid_does_not_stop_the_others(self, app_context, mock_mongo, mocker):
@@ -160,36 +157,3 @@ class TestAnalyzeUnprocessedAsteroids:
         stats = analyze_unprocessed_asteroids()
 
         assert stats == {"total_fetched": 2, "processed": 1, "failed": 1, "skipped": 0}
-
-
-class TestAnalyzeSingleAsteroid:
-    def test_raises_if_mongo_not_initialized(self, app_context_without_mongo):
-        with pytest.raises(RuntimeError, match="MongoDB extension not initialized"):
-            analyze_single_asteroid("123")
-
-    def test_raises_value_error_if_asteroid_not_found(self, app_context, mock_mongo):
-        mock_mongo.get_raw_asteroid_by_id.return_value = None
-
-        with pytest.raises(ValueError, match="not found in database"):
-            analyze_single_asteroid("123")
-
-    def test_raises_value_error_if_mapping_fails(self, app_context, mock_mongo, mocker):
-        mock_mongo.get_raw_asteroid_by_id.return_value = make_raw_doc("123")
-        mocker.patch("app.core.pipeline.map_mongo_document_to_asteroid", return_value=None)
-
-        with pytest.raises(ValueError, match="mapping failed"):
-            analyze_single_asteroid("123")
-
-    def test_returns_risk_result_and_saves_it(self, app_context, mock_mongo, mocker):
-        mock_mongo.get_raw_asteroid_by_id.return_value = make_raw_doc("123")
-        mocker.patch(
-            "app.core.pipeline.map_mongo_document_to_asteroid",
-            return_value=make_asteroid("123"),
-        )
-        risk_result = {"asteroid_id": "123", "risk_level": "Critical"}
-        mocker.patch("app.core.pipeline.process_asteroid_with_rust", return_value=risk_result)
-
-        result = analyze_single_asteroid("123")
-
-        assert result == risk_result
-        mock_mongo.save_analysis_result.assert_called_once_with("123", risk_result)

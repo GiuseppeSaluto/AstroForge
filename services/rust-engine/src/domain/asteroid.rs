@@ -48,14 +48,9 @@ mod tests {
         AsteroidDTO {
             id: "12345".to_string(),
             name: "Test Asteroid".to_string(),
-            absolute_magnitude_h: 20.0,
-            diameter_min_km: 0.1,
-            diameter_max_km: 0.5,
             diameter_avg_km: 0.3,
-            close_approach_date: "2025-01-01".to_string(),
             relative_velocity_kps: 10.0,
             miss_distance_km: 100_000.0,
-            orbiting_body: "Earth".to_string(),
             is_potentially_hazardous: false,
         }
     }

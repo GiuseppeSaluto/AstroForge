@@ -8,6 +8,8 @@ Mongo aggregation result shaping, and HTTP status mapping.
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import requests
+
 from flask import Flask
 
 from app.routes.orchestration import orchestration_bp
@@ -44,50 +46,46 @@ class TestAnalyzeNeoPipeline:
         assert response.status_code == 400
 
 
-class TestAnalyzeSingleNeo:
-    def test_returns_risk_analysis(self, mocker):
-        result = {"asteroid_id": "1", "risk_level": "Low"}
-        mocker.patch(
-            "app.routes.orchestration.analyze_single_asteroid",
-            return_value=result,
-        )
-        client = make_app().test_client()
+class TestAnalyzeNeoPipelineRustFailures:
+    """Drives the real pipeline + rust_client (only Mongo and the HTTP layer
+    are faked), so these check what the dashboard actually receives."""
 
-        response = client.post("/pipeline/neo/analyze/1")
+    RAW_DOC = {"asteroid": {
+        "id": "1", "name": "Alpha",
+        "estimated_diameter": {"kilometers": {"estimated_diameter_min": 0.1, "estimated_diameter_max": 0.3}},
+        "close_approach_data": [{
+            "relative_velocity": {"kilometers_per_second": "10.0"},
+            "miss_distance": {"kilometers": "100000.0"},
+        }],
+    }}
 
-        assert response.status_code == 200
-        assert response.get_json()["risk_analysis"] == result
-
-    def test_not_found_returns_404(self, mocker):
-        mocker.patch(
-            "app.routes.orchestration.analyze_single_asteroid",
-            side_effect=ValueError("Asteroid 1 not found in database"),
-        )
-        client = make_app().test_client()
-
-        response = client.post("/pipeline/neo/analyze/1")
-
-        assert response.status_code == 404
-
-    def test_missing_rust_engine_url_is_500_not_404(self, monkeypatch):
-        # Regression: an unconfigured engine used to raise ValueError,
-        # which this route reported as "asteroid not found".
-        monkeypatch.setattr("app.core.rust_client.RUST_ENGINE_URL", None)
+    def _client(self):
         mongo = MagicMock()
-        mongo.get_raw_asteroid_by_id.return_value = {"asteroid": {
-            "id": "1", "name": "Alpha",
-            "estimated_diameter": {"kilometers": {"estimated_diameter_min": 0.1, "estimated_diameter_max": 0.3}},
-            "close_approach_data": [{
-                "relative_velocity": {"kilometers_per_second": "10.0"},
-                "miss_distance": {"kilometers": "100000.0"},
-            }],
-        }}
-        client = make_app(mongo=mongo).test_client()
+        mongo.get_unprocessed_asteroids.return_value = [self.RAW_DOC]
+        return make_app(mongo=mongo).test_client(), mongo
 
-        response = client.post("/pipeline/neo/analyze/1")
+    def test_missing_rust_engine_url_is_500(self, monkeypatch):
+        # Regression (step 1): a missing URL used to surface as a 404.
+        monkeypatch.setattr("app.core.rust_client.RUST_ENGINE_URL", None)
+        client, _ = self._client()
+
+        response = client.post("/pipeline/neo/analyze")
 
         assert response.status_code == 500
         assert "RUST_ENGINE_URL" in response.get_json()["details"]
+
+    def test_unreachable_rust_engine_is_503_not_success(self, monkeypatch, requests_mock):
+        # Regression: used to return 200 "success" with every asteroid
+        # counted as failed, so the dashboard showed a green "0 processed".
+        monkeypatch.setattr("app.core.rust_client.RUST_ENGINE_URL", "http://rust.test")
+        requests_mock.post("http://rust.test/api/process/batch", exc=requests.ConnectionError("refused"))
+        client, mongo = self._client()
+
+        response = client.post("/pipeline/neo/analyze")
+
+        assert response.status_code == 503
+        assert response.get_json()["error"] == "Rust Engine unreachable"
+        mongo.save_analysis_result.assert_not_called()
 
 
 class TestPipelineStatus:

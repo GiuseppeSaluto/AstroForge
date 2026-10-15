@@ -42,24 +42,16 @@ def map_nasa_raw_to_asteroid(raw_nasa_data: dict) -> Optional[Asteroid]:
 
         miss_distance_info = first_approach.get("miss_distance") or {}
         miss_distance_km = float(miss_distance_info.get("kilometers", 0.0))
-        
-        approach_date = first_approach.get("close_approach_date", "")
-        orbiting_body = first_approach.get("orbiting_body", "Earth")
-        
+
         is_hazardous = raw_nasa_data.get("is_potentially_hazardous_asteroid", False)
-        
-        absolute_magnitude = raw_nasa_data.get("absolute_magnitude_h", 0.0)
-        
+
         return Asteroid(
             id=asteroid_id,
             name=name,
-            absolute_magnitude_h=absolute_magnitude,
             diameter_km=diameter_avg,
             velocity_kps=velocity_kps,
             distance_km=miss_distance_km,
             is_potentially_hazardous=is_hazardous,
-            close_approach_date=approach_date,
-            orbiting_body=orbiting_body,
         )
         
     except (KeyError, ValueError, TypeError, AttributeError) as e:

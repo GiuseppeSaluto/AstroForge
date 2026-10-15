@@ -49,7 +49,13 @@ def _request(method: str, path: str, timeout: int = DEFAULT_TIMEOUT, **kwargs) -
         return response.json(), None
     except requests.RequestException as e:
         logger.error(f"{method} {path} failed: {e}")
-        return None, str(e)
+        # Prefer the API's own JSON message (e.g. "Rust Engine unreachable")
+        # over requests' generic "503 Server Error: ... for url ..." text.
+        # e.response is None for network errors, hence AttributeError.
+        try:
+            return None, e.response.json()["error"]
+        except (AttributeError, ValueError, KeyError, TypeError):
+            return None, str(e)
 
 # =====================================================================
 # HEALTH & STATUS

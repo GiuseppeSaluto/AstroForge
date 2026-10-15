@@ -13,8 +13,8 @@ def register_error_handlers(app):
     unreachable Rust Engine, and a blanket 500 for anything unexpected).
 
     Route-specific exception meanings stay local to their route instead
-    of being centralized here — e.g. `ValueError` means "asteroid not
-    found" in `analyze_single_neo`.
+    of being centralized here — e.g. `ValueError` means "invalid NASA
+    feed" (502) in `/nasa/neo/save`.
     """
 
     @app.errorhandler(RuntimeError)

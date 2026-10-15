@@ -159,22 +159,12 @@ Triggers Rust risk analysis for all unprocessed asteroids in MongoDB.
 }
 ```
 
-### `POST /pipeline/neo/analyze/<asteroid_id>`
+`skipped` counts asteroids that failed mapping or were rejected by the Rust Engine's
+validation; `failed` counts results that could not be saved to MongoDB.
+Returns `503` with `{"error": "Rust Engine unreachable"}` if the engine can't be reached
+(nothing is saved; the asteroids stay unprocessed for the next run), and `500` if
+`RUST_ENGINE_URL` is not configured.
 
-Analyzes a single asteroid already stored in MongoDB.
-
-```json
-{
-  "status": "success",
-  "asteroid_id": "3542519",
-  "risk_analysis": {
-    "risk_level": "Low",
-    "risk_score_0_to_100": 12.4,
-    "impact_energy_megatons": 0.003,
-    "miss_distance_km": 4521384.12
-  }
-}
-```
 
 ### `GET /pipeline/status`
 

@@ -1,6 +1,5 @@
 use axum::{extract::Json, http::StatusCode, response::IntoResponse};
 use crate::domain::asteroid::Asteroid;
-use crate::api::error::map_domain_error;
 use crate::domain::risk::RiskResult;
 use crate::dto::asteroid_dto::AsteroidDTO;
 use crate::logic::impact_energy::ImpactPhysics;
@@ -44,31 +43,6 @@ fn compute_risk(asteroid: &Asteroid) -> RiskResult {
         velocity_kps: asteroid.velocity_kps,
         diameter_km: asteroid.diameter_km,
     }
-}
-
-// ── Single asteroid ───────────────────────────────────────────────────────────
-
-pub async fn process_asteroid(Json(dto): Json<AsteroidDTO>) -> impl IntoResponse {
-    tracing::info!(id = %dto.id, name = %dto.name, "Processing single asteroid");
-
-    let asteroid = match Asteroid::try_from(dto) {
-        Ok(a) => a,
-        Err(err) => {
-            tracing::warn!("Validation failed: {}", err);
-            return map_domain_error(err).into_response();
-        }
-    };
-
-    let result = compute_risk(&asteroid);
-
-    tracing::info!(
-        id = %asteroid.id,
-        risk_score = result.risk_score_0_to_100,
-        energy_mt = result.impact_energy_megatons,
-        "Single asteroid processed"
-    );
-
-    (StatusCode::OK, Json(result)).into_response()
 }
 
 // ── Batch ─────────────────────────────────────────────────────────────────────
@@ -134,14 +108,9 @@ mod integration_tests {
         serde_json::json!({
             "id": "12345",
             "name": "Test Asteroid",
-            "absolute_magnitude_h": 20.0,
-            "diameter_min_km": 0.1,
-            "diameter_max_km": 0.5,
             "diameter_avg_km": 0.3,
-            "close_approach_date": "2025-01-01",
             "relative_velocity_kps": 10.0,
             "miss_distance_km": 100_000.0,
-            "orbiting_body": "Earth",
             "is_potentially_hazardous": false
         })
     }
@@ -168,23 +137,21 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn process_asteroid_returns_200_for_valid_payload() {
-        let request = post_request("/process/asteroid", valid_asteroid_json());
+    async fn process_batch_accepts_legacy_payload_with_extra_fields() {
+        // Older Python clients sent 11 fields; the DTO now has 6. serde
+        // ignores unknown fields, so the old payload must still deserialize.
+        let mut legacy = valid_asteroid_json();
+        legacy["absolute_magnitude_h"] = serde_json::json!(20.0);
+        legacy["diameter_min_km"] = serde_json::json!(0.1);
+        legacy["orbiting_body"] = serde_json::json!("Earth");
+        let request = post_request("/process/batch", serde_json::json!([legacy]));
 
         let response = router().oneshot(request).await.unwrap();
-
         assert_eq!(response.status(), StatusCode::OK);
-    }
 
-    #[tokio::test]
-    async fn process_asteroid_returns_400_for_invalid_diameter() {
-        let mut payload = valid_asteroid_json();
-        payload["diameter_avg_km"] = serde_json::json!(-1.0);
-        let request = post_request("/process/asteroid", payload);
-
-        let response = router().oneshot(request).await.unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["results"].as_array().unwrap().len(), 1);
     }
 
     #[tokio::test]

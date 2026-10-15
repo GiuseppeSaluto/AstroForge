@@ -72,9 +72,6 @@ class MongoDBClient:
             logger.info(f"Inserted raw asteroid {asteroid_id} for {date}")
         return is_new
 
-    def get_raw_asteroid_by_id(self, asteroid_id: str) -> dict | None:
-        return self.db["asteroids_raw"].find_one({"asteroid.id": asteroid_id})
-
     def get_unprocessed_asteroids(self, limit: int = 100) -> list[dict]:
         pipeline = [
             {"$lookup": {

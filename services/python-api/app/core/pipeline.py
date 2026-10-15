@@ -1,8 +1,6 @@
-from requests.exceptions import RequestException
-
 from app.core.dto_mapper import map_mongo_document_to_asteroid
 from app.core.mongodb import get_mongo
-from app.core.rust_client import process_asteroid_batch_with_rust, process_asteroid_with_rust
+from app.core.rust_client import process_asteroid_batch_with_rust
 from app.utils.logger import logger
 
 
@@ -37,15 +35,14 @@ def analyze_unprocessed_asteroids(limit: int = 100) -> dict:
         logger.info("No asteroids to process after mapping")
         return stats
 
-    # Send the entire batch to the Rust Engine in a single request
+    # Send the entire batch to the Rust Engine in a single request.
+    # A connection/HTTP error is not caught here: it reaches the global
+    # RequestException handler as a 503 "Rust Engine unreachable", instead
+    # of a 200 "success" with every asteroid silently counted as failed.
+    # Nothing has been saved yet, so the asteroids stay unprocessed and
+    # the next run picks them up.
     dto_list = [a.to_dto_dict() for a in asteroids]
-
-    try:
-        batch = process_asteroid_batch_with_rust(dto_list)
-    except RequestException as e:
-        logger.error(f"Rust engine batch request failed: {e}")
-        stats["failed"] += len(asteroids)
-        return stats
+    batch = process_asteroid_batch_with_rust(dto_list)
 
     for risk_result in batch.results:
         asteroid_id = risk_result.get("asteroid_id", "unknown")
@@ -70,25 +67,3 @@ def analyze_unprocessed_asteroids(limit: int = 100) -> dict:
     )
 
     return stats
-
-
-def analyze_single_asteroid(asteroid_id: str) -> dict:
-    mongo = get_mongo()
-
-    logger.info(f"Analyzing single asteroid: {asteroid_id}")
-
-    raw_doc = mongo.get_raw_asteroid_by_id(asteroid_id)
-    if not raw_doc:
-        raise ValueError(f"Asteroid {asteroid_id} not found in database")
-
-    asteroid = map_mongo_document_to_asteroid(raw_doc)
-    if asteroid is None:
-        raise ValueError(f"Asteroid {asteroid_id} mapping failed")
-
-    risk_result = process_asteroid_with_rust(asteroid.to_dto_dict())
-
-    mongo.save_analysis_result(asteroid.id, risk_result)
-
-    logger.info(f"Single asteroid analysis complete: {asteroid_id}")
-
-    return risk_result

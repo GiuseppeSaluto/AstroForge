@@ -45,8 +45,6 @@ class TestMapNasaRawToAsteroid:
         assert asteroid.diameter_km == 23.5  # (22.0 + 25.0) / 2
         assert asteroid.velocity_kps == 5.5
         assert asteroid.distance_km == 26_400_000.0
-        assert asteroid.close_approach_date == "2025-01-01"
-        assert asteroid.orbiting_body == "Earth"
         assert asteroid.is_potentially_hazardous is False
 
     def test_missing_id_is_rejected(self):

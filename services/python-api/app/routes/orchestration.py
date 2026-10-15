@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app.core.mongodb import get_mongo
-from app.core.pipeline import analyze_single_asteroid, analyze_unprocessed_asteroids
+from app.core.pipeline import analyze_unprocessed_asteroids
 from app.core.rust_client import check_rust_health
 from app.utils.logger import logger
 
@@ -26,38 +26,6 @@ def analyze_neo_pipeline():
         }
     ), 200
 
-
-@orchestration_bp.route("/neo/analyze/<asteroid_id>", methods=["POST"])
-def analyze_single_neo(asteroid_id: str):
-    logger.info(f"Received request: POST /pipeline/neo/analyze/{asteroid_id}")
-
-    try:
-        result = analyze_single_asteroid(asteroid_id)
-
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "asteroid_id": asteroid_id,
-                    "risk_analysis": result,
-                }
-            ),
-            200,
-        )
-
-    except ValueError as e:
-        # Route-specific meaning ("asteroid not found or invalid"), so
-        # this stays local rather than in the global error handlers.
-        logger.warning(f"Asteroid {asteroid_id} not found or invalid: {e}")
-        return (
-            jsonify(
-                {
-                    "error": "Asteroid not found or invalid",
-                    "details": str(e),
-                }
-            ),
-            404,
-        )
 
 @orchestration_bp.route("/status", methods=["GET"])
 def pipeline_status():

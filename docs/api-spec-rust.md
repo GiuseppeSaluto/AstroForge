@@ -11,38 +11,49 @@ Returns `"ok"` when the engine is running.
 
 ---
 
-### `POST /api/process/asteroid`
+### `POST /api/process/batch`
 
-Runs impact-physics risk analysis on a single asteroid DTO.
+Runs impact-physics risk analysis on a JSON array of 1–500 asteroid DTOs.
 
-**Request body** — normalized asteroid object with mass, velocity, and close-approach data.
-
-**Response**
+**Request body** — array of:
 
 ```json
 {
-  "asteroid_id": "3542519",
-  "asteroid_name": "(2010 PK9)",
-  "risk_level": "Low",
-  "risk_score_0_to_100": 12.4,
-  "impact_energy_megatons": 0.003,
-  "diameter_km": 0.2151,
-  "velocity_kps": 14.32,
+  "id": "3542519",
+  "name": "(2010 PK9)",
+  "diameter_avg_km": 0.2151,
+  "relative_velocity_kps": 14.32,
   "miss_distance_km": 4521384.12,
   "is_potentially_hazardous": true
 }
 ```
 
-Returns `400 Bad Request` if the DTO fails domain validation (empty ID, non-positive
-diameter, negative velocity or miss distance).
+Unknown extra fields are ignored, so older clients that send more fields still work.
 
----
+**Response** — `200 OK`. Entries that fail domain validation (empty ID, non-positive
+diameter, negative velocity or miss distance) don't fail the batch: they are reported
+in `errors` while the valid ones are scored in `results`.
 
-### `POST /api/process/batch`
-
-Same as `/api/process/asteroid`, but takes a JSON array (1–500 entries) and returns an
-array of results. Entries that fail validation are silently dropped from the response
-rather than failing the whole batch — the caller (the Python pipeline) reconciles which
-IDs are missing from the response to know what was skipped.
+```json
+{
+  "results": [
+    {
+      "asteroid_id": "3542519",
+      "asteroid_name": "(2010 PK9)",
+      "risk_level": "Low",
+      "risk_score_0_to_100": 12.4,
+      "impact_energy_joules": 1.26e13,
+      "impact_energy_megatons": 0.003,
+      "diameter_km": 0.2151,
+      "velocity_kps": 14.32,
+      "miss_distance_km": 4521384.12,
+      "is_potentially_hazardous": true
+    }
+  ],
+  "errors": [
+    { "id": "999", "details": "Invalid diameter: -1 km (must be > 0)" }
+  ]
+}
+```
 
 Returns `400 Bad Request` for an empty array or a batch larger than 500.
