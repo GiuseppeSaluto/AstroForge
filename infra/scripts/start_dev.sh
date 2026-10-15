@@ -103,7 +103,7 @@ start_python_api() {
     # Check if Python venv exists
     if [ ! -d "venv" ]; then
         echo -e "${RED}❌ Virtual environment not found. Run first:${NC}"
-        echo -e "${YELLOW}  cd services/python-api && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt${NC}"
+        echo -e "${YELLOW}  cd services/python-api && python -m venv venv && source venv/bin/activate && pip install -r requirements-dev.txt${NC}"
         exit 1
     fi
 

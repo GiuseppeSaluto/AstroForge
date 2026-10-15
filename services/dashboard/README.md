@@ -65,16 +65,11 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Set environment variables (or use `.env` file):
+The dashboard only talks to the Python API, which reports Mongo and Rust Engine health on its behalf:
 
 ```bash
-export API_BASE_URL=http://localhost:5001          # Python API endpoint
-export RUST_ENGINE_URL=http://localhost:8080       # Rust engine endpoint
+export API_BASE_URL=http://localhost:5001          # default
 ```
-
-Defaults:
-- `API_BASE_URL`: `http://localhost:5001`
-- `RUST_ENGINE_URL`: `http://localhost:8080`
 
 ## Running
 
@@ -189,7 +184,7 @@ Required endpoints:
 
 ### "Rust Engine unreachable"
 - Check Rust engine is running on port 8080
-- Verify `RUST_ENGINE_URL` environment variable
+- Verify `RUST_ENGINE_URL` in the Python API config (`infra/env/python.env`)
 
 ### No data showing
 - Ensure pipeline has been run at least once

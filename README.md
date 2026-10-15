@@ -89,7 +89,7 @@ python -m app.main
 #### First-time venv setup
 
 ```bash
-cd services/python-api && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+cd services/python-api && python -m venv venv && source venv/bin/activate && pip install -r requirements-dev.txt
 cd ../dashboard       && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
@@ -194,7 +194,8 @@ services/
 │   │   ├── models/       Asteroid domain model
 │   │   └── utils/        Structured logger, centralized error handlers
 │   ├── Dockerfile
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── requirements-dev.txt   pytest, flake8, black (not in the Docker image)
 │
 ├── rust-engine/          Axum microservice — impact physics + risk scoring
 │   ├── src/
