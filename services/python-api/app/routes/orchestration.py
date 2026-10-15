@@ -47,9 +47,7 @@ def analyze_single_neo(asteroid_id: str):
 
     except ValueError as e:
         # Route-specific meaning ("asteroid not found or invalid"), so
-        # this stays local rather than in the global error handlers —
-        # ValueError means something else entirely elsewhere (e.g. a
-        # misconfigured RUST_ENGINE_URL in rust_client.py).
+        # this stays local rather than in the global error handlers.
         logger.warning(f"Asteroid {asteroid_id} not found or invalid: {e}")
         return (
             jsonify(
@@ -81,8 +79,8 @@ def pipeline_status():
                 503,
             )
 
-        mongo.get_unprocessed_asteroids(limit=1)
-        
+        mongo.ping()
+
         # Check Rust Engine health
         rust_status = check_rust_health()
 

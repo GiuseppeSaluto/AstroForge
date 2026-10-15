@@ -14,7 +14,7 @@ class BatchResult:
 
 def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> BatchResult:
     if not RUST_ENGINE_URL:
-        raise ValueError("RUST_ENGINE_URL is not configured.")
+        raise RuntimeError("RUST_ENGINE_URL is not configured.")
 
     url = f"{RUST_ENGINE_URL}/api/process/batch"
     logger.info(f"Sending batch of {len(asteroid_dtos)} asteroids to Rust Engine")
@@ -41,7 +41,7 @@ def process_asteroid_batch_with_rust(asteroid_dtos: list[Dict[str, Any]]) -> Bat
 
 def process_asteroid_with_rust(asteroid_dto: Dict[str, Any]) -> Dict[str, Any]:
     if not RUST_ENGINE_URL:
-        raise ValueError("RUST_ENGINE_URL is not configured.")
+        raise RuntimeError("RUST_ENGINE_URL is not configured.")
 
     url = f"{RUST_ENGINE_URL}/api/process/asteroid"
     asteroid_id = asteroid_dto.get("id", "unknown")

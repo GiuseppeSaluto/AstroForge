@@ -69,11 +69,30 @@ class TestAnalyzeSingleNeo:
 
         assert response.status_code == 404
 
+    def test_missing_rust_engine_url_is_500_not_404(self, monkeypatch):
+        # Regression: an unconfigured engine used to raise ValueError,
+        # which this route reported as "asteroid not found".
+        monkeypatch.setattr("app.core.rust_client.RUST_ENGINE_URL", None)
+        mongo = MagicMock()
+        mongo.get_raw_asteroid_by_id.return_value = {"asteroid": {
+            "id": "1", "name": "Alpha",
+            "estimated_diameter": {"kilometers": {"estimated_diameter_min": 0.1, "estimated_diameter_max": 0.3}},
+            "close_approach_data": [{
+                "relative_velocity": {"kilometers_per_second": "10.0"},
+                "miss_distance": {"kilometers": "100000.0"},
+            }],
+        }}
+        client = make_app(mongo=mongo).test_client()
+
+        response = client.post("/pipeline/neo/analyze/1")
+
+        assert response.status_code == 500
+        assert "RUST_ENGINE_URL" in response.get_json()["details"]
+
 
 class TestPipelineStatus:
     def test_healthy_when_mongo_and_rust_ok(self, mocker):
         mongo = MagicMock()
-        mongo.get_unprocessed_asteroids.return_value = []
         mocker.patch("app.routes.orchestration.check_rust_health", return_value="ok")
         client = make_app(mongo=mongo).test_client()
 
@@ -93,7 +112,7 @@ class TestPipelineStatus:
 
     def test_mongo_error_returns_503(self, mocker):
         mongo = MagicMock()
-        mongo.get_unprocessed_asteroids.side_effect = RuntimeError("db down")
+        mongo.ping.side_effect = RuntimeError("db down")
         client = make_app(mongo=mongo).test_client()
 
         response = client.get("/pipeline/status")
@@ -156,7 +175,7 @@ class TestPipelineStats:
         response = client.get("/pipeline/stats")
 
         assert response.status_code == 500
-        assert response.get_json()["error"] == "Pipeline not properly initialized"
+        assert response.get_json()["error"] == "Pipeline error"
 
 
 class TestCloseApproaches:
@@ -199,7 +218,7 @@ class TestCloseApproaches:
         response = client.get("/pipeline/close-approaches")
 
         assert response.status_code == 500
-        assert response.get_json()["error"] == "Pipeline not properly initialized"
+        assert response.get_json()["error"] == "Pipeline error"
 
 
 class TestListAnalyzedAsteroids:
@@ -242,4 +261,4 @@ class TestListAnalyzedAsteroids:
         response = client.get("/pipeline/analysis/asteroids")
 
         assert response.status_code == 500
-        assert response.get_json()["error"] == "Pipeline not properly initialized"
+        assert response.get_json()["error"] == "Pipeline error"

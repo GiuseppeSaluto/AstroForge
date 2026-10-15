@@ -53,3 +53,5 @@ docker-compose.override.yml
 Thumbs.db
 
 CLAUDE.md
+# Local dev notes
+dev.md

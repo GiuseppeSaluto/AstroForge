@@ -13,15 +13,17 @@ _MAX_DATE_RANGE_DAYS = 365
 
 def _normalize_asteroid(neo: dict, approach_date: str) -> dict:
     """Flatten a NASA NEO object into our API shape."""
-    approaches = neo.get("close_approach_data", [])
+    # `or {}` rather than `.get(key, {})`: NASA sends explicit nulls
+    # (e.g. "estimated_diameter": null), same as handled in dto_mapper.
+    approaches = neo.get("close_approach_data") or []
     closest = approaches[0] if approaches else {}
 
-    diameter = neo.get("estimated_diameter", {}).get("kilometers", {})
-    diam_min = diameter.get("estimated_diameter_min", 0.0)
-    diam_max = diameter.get("estimated_diameter_max", 0.0)
+    diameter = (neo.get("estimated_diameter") or {}).get("kilometers") or {}
+    diam_min = diameter.get("estimated_diameter_min") or 0.0
+    diam_max = diameter.get("estimated_diameter_max") or 0.0
 
-    velocity = closest.get("relative_velocity", {})
-    miss = closest.get("miss_distance", {})
+    velocity = closest.get("relative_velocity") or {}
+    miss = closest.get("miss_distance") or {}
 
     return {
         "id": neo.get("id"),
@@ -213,21 +215,25 @@ def asteroid_detail(asteroid_id: str):
         logger.error(f"NASA API unreachable for asteroid {asteroid_id}: {e}")
         return jsonify({"error": "Failed to connect to NASA API"}), 503
 
-    diameter = data.get("estimated_diameter", {})
-    orbital = data.get("orbital_data", {})
+    diameter = data.get("estimated_diameter") or {}
+    diameter_km = diameter.get("kilometers") or {}
+    diameter_m = diameter.get("meters") or {}
+    orbital = data.get("orbital_data") or {}
+    orbit_class = orbital.get("orbit_class") or {}
 
-    close_approaches = [
-        {
+    close_approaches = []
+    for ca in data.get("close_approach_data") or []:
+        velocity = ca.get("relative_velocity") or {}
+        miss = ca.get("miss_distance") or {}
+        close_approaches.append({
             "date": ca.get("close_approach_date"),
             "date_full": ca.get("close_approach_date_full"),
-            "velocity_kps": round(float(ca.get("relative_velocity", {}).get("kilometers_per_second", 0)), 4),
-            "velocity_kph": round(float(ca.get("relative_velocity", {}).get("kilometers_per_hour", 0)), 2),
-            "miss_distance_km": round(float(ca.get("miss_distance", {}).get("kilometers", 0)), 2),
-            "miss_distance_lunar": round(float(ca.get("miss_distance", {}).get("lunar", 0)), 4),
+            "velocity_kps": round(float(velocity.get("kilometers_per_second") or 0), 4),
+            "velocity_kph": round(float(velocity.get("kilometers_per_hour") or 0), 2),
+            "miss_distance_km": round(float(miss.get("kilometers") or 0), 2),
+            "miss_distance_lunar": round(float(miss.get("lunar") or 0), 4),
             "orbiting_body": ca.get("orbiting_body"),
-        }
-        for ca in data.get("close_approach_data", [])
-    ]
+        })
 
     return jsonify({
         "id": data.get("id"),
@@ -238,10 +244,10 @@ def asteroid_detail(asteroid_id: str):
         "is_potentially_hazardous": data.get("is_potentially_hazardous_asteroid", False),
         "is_sentry_object": data.get("is_sentry_object", False),
         "diameter": {
-            "km_min": diameter.get("kilometers", {}).get("estimated_diameter_min"),
-            "km_max": diameter.get("kilometers", {}).get("estimated_diameter_max"),
-            "m_min": diameter.get("meters", {}).get("estimated_diameter_min"),
-            "m_max": diameter.get("meters", {}).get("estimated_diameter_max"),
+            "km_min": diameter_km.get("estimated_diameter_min"),
+            "km_max": diameter_km.get("estimated_diameter_max"),
+            "m_min": diameter_m.get("estimated_diameter_min"),
+            "m_max": diameter_m.get("estimated_diameter_max"),
         },
         "close_approach_data": close_approaches,
         "orbital_data": {
@@ -256,7 +262,7 @@ def asteroid_detail(asteroid_id: str):
             "aphelion_distance": orbital.get("aphelion_distance"),
             "minimum_orbit_intersection": orbital.get("minimum_orbit_intersection"),
             "orbit_determination_date": orbital.get("orbit_determination_date"),
-            "orbit_class": orbital.get("orbit_class", {}).get("orbit_class_description"),
-            "orbit_class_type": orbital.get("orbit_class", {}).get("orbit_class_type"),
+            "orbit_class": orbit_class.get("orbit_class_description"),
+            "orbit_class_type": orbit_class.get("orbit_class_type"),
         },
     }), 200

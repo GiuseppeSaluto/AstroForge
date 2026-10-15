@@ -7,21 +7,20 @@ from app.utils.logger import logger
 
 def register_error_handlers(app):
     """Central JSON responses for the exception types that were being
-    caught identically in every pipeline route (RuntimeError for an
-    uninitialized Mongo/pipeline extension, RequestException for an
+    caught identically in every pipeline route (RuntimeError for a
+    server-side pipeline fault — uninitialized Mongo, missing
+    RUST_ENGINE_URL, invalid Rust response — RequestException for an
     unreachable Rust Engine, and a blanket 500 for anything unexpected).
 
     Route-specific exception meanings stay local to their route instead
     of being centralized here — e.g. `ValueError` means "asteroid not
-    found" in `analyze_single_neo` but "Rust Engine URL misconfigured"
-    in `rust_client`, so a single global mapping for it would be wrong
-    for one of the two cases.
+    found" in `analyze_single_neo`.
     """
 
     @app.errorhandler(RuntimeError)
     def handle_runtime_error(e):
-        logger.error(f"Pipeline initialization error: {e}")
-        return jsonify({"error": "Pipeline not properly initialized", "details": str(e)}), 500
+        logger.error(f"Pipeline error: {e}")
+        return jsonify({"error": "Pipeline error", "details": str(e)}), 500
 
     @app.errorhandler(RequestException)
     def handle_request_exception(e):

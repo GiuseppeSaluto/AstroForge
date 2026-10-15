@@ -1,5 +1,6 @@
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 from app.core.config import LOG_DIRECTORY
 
 os.makedirs(LOG_DIRECTORY, exist_ok=True)
@@ -9,7 +10,8 @@ logger.setLevel(logging.INFO)
 
 log_path = os.path.join(LOG_DIRECTORY, "python_api.log")
 
-file_handler = logging.FileHandler(log_path)
+# Bounded: 5 MB x 3 backups. /logs only reads the current file.
+file_handler = RotatingFileHandler(log_path, maxBytes=5_000_000, backupCount=3)
 file_handler.setLevel(logging.INFO)
 
 console_handler = logging.StreamHandler()

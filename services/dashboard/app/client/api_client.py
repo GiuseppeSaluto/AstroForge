@@ -36,43 +36,23 @@ _session = _create_session_with_retries()
 # HEALTH & STATUS
 # =====================================================================
 
-def get_backend_health() -> Dict[str, Any]:
-    """Check Python API health."""
+def get_system_status() -> Dict[str, Any]:
+    """Get overall system health status (Python API reports Mongo + Rust)."""
     try:
         response = _session.get(
             f"{API_BASE_URL}/pipeline/status",
             timeout=DEFAULT_TIMEOUT,
         )
         response.raise_for_status()
-        return response.json()
+        backend = response.json()
     except requests.RequestException as e:
         logger.warning(f"Backend health check failed: {e}")
-        return {"status": "unreachable", "error": str(e)}
+        backend = {"status": "unreachable", "error": str(e)}
 
-def get_rust_health() -> Dict[str, Any]:
-    """Check Rust engine health via Python API status."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/pipeline/status",
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        rust_status = data.get("components", {}).get("rust_engine", "unknown")
-        return {"status": "ok" if rust_status == "ok" else "unreachable"}
-    except requests.RequestException as e:
-        logger.warning(f"Rust health check failed: {e}")
-        return {"status": "unreachable", "error": str(e)}
-
-def get_system_status() -> Dict[str, Any]:
-    """Get overall system health status."""
-    backend = get_backend_health()
-    rust = get_rust_health()
-    
+    rust_ok = backend.get("components", {}).get("rust_engine") == "ok"
     return {
         "backend": backend,
-        "rust_engine": rust,
-        "timestamp": __import__("datetime").datetime.now().isoformat()
+        "rust_engine": {"status": "ok" if rust_ok else "unreachable"},
     }
 
 # =====================================================================

@@ -121,6 +121,12 @@ class MongoDBClient:
             logger.error(f"Failed to save raw asteroid {asteroid_id}: {e}")
             raise
 
+    def ping(self) -> None:
+        """Cheap liveness check; raises PyMongoError if the server is unreachable."""
+        if self.client is None:
+            raise RuntimeError("Database not initialized")
+        self.client.admin.command("ping")
+
     def count_raw_asteroids(self) -> int:
         """Return the total number of raw asteroids stored in the DB."""
         if self.db is None:

@@ -40,7 +40,7 @@ def test_runtime_error_returns_500_with_pipeline_message():
 
     assert response.status_code == 500
     body = response.get_json()
-    assert body["error"] == "Pipeline not properly initialized"
+    assert body["error"] == "Pipeline error"
     assert "mongo not initialized" in body["details"]
 
 

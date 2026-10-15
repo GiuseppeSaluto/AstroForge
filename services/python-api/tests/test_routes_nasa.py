@@ -139,7 +139,7 @@ class TestSaveNeoData:
         response = client.post("/nasa/neo/save")
 
         assert response.status_code == 500
-        assert response.get_json()["error"] == "Pipeline not properly initialized"
+        assert response.get_json()["error"] == "Pipeline error"
 
     def test_request_exception_returns_503(self, mocker):
         mocker.patch(
@@ -233,6 +233,21 @@ class TestListAsteroids:
         response = client.get("/nasa/asteroids")
 
         assert response.status_code == 429
+
+    def test_null_nested_fields_do_not_crash(self, client, mocker):
+        # NASA sends explicit nulls instead of omitting keys.
+        neo = make_neo("1", "Alpha", False, 0.1, 0.3, 10.0, 100_000.0)
+        neo["estimated_diameter"] = None
+        neo["close_approach_data"][0]["relative_velocity"] = None
+        feed = {"near_earth_objects": {"2025-01-01": [neo]}}
+        mocker.patch("app.routes.nasa.get_neo_feed_chunked", return_value=feed)
+
+        response = client.get("/nasa/asteroids")
+
+        assert response.status_code == 200
+        asteroid = response.get_json()["asteroids"][0]
+        assert asteroid["diameter_km_avg"] == 0.0
+        assert asteroid["velocity_kps"] == 0.0
 
 
 class TestAsteroidDetail:
