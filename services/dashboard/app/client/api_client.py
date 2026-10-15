@@ -15,21 +15,41 @@ REQUEST_TIMEOUT = 20
 def _create_session_with_retries() -> requests.Session:
     """Create a requests session with retry strategy."""
     session = requests.Session()
-    
+
+    # POST is deliberately not retried: "Run pipeline" is not a read, and
+    # retrying it on a 500/503 just re-runs the work and keeps the button
+    # hanging for up to 4x REQUEST_TIMEOUT before showing the failure.
     retry_strategy = Retry(
         total=3,
         backoff_factor=0.5,
         status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+        allowed_methods=["HEAD", "GET", "OPTIONS"]
     )
-    
+
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    
+
     return session
 
 _session = _create_session_with_retries()
+
+
+def _request(method: str, path: str, timeout: int = DEFAULT_TIMEOUT, **kwargs) -> tuple[Any, Optional[str]]:
+    """Call the Python API.
+
+    Returns (json, None) on success and (None, error message) on any
+    failure — network error, HTTP error status, or a non-JSON body
+    (requests' JSONDecodeError is a RequestException too). Screens never
+    see an exception; each public function below picks its own fallback.
+    """
+    try:
+        response = _session.request(method, f"{API_BASE_URL}{path}", timeout=timeout, **kwargs)
+        response.raise_for_status()
+        return response.json(), None
+    except requests.RequestException as e:
+        logger.error(f"{method} {path} failed: {e}")
+        return None, str(e)
 
 # =====================================================================
 # HEALTH & STATUS
@@ -37,16 +57,9 @@ _session = _create_session_with_retries()
 
 def get_system_status() -> Dict[str, Any]:
     """Get overall system health status (Python API reports Mongo + Rust)."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/pipeline/status",
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        backend = response.json()
-    except requests.RequestException as e:
-        logger.warning(f"Backend health check failed: {e}")
-        backend = {"status": "unreachable", "error": str(e)}
+    backend, error = _request("GET", "/pipeline/status")
+    if error:
+        backend = {"status": "unreachable", "error": error}
 
     rust_ok = backend.get("components", {}).get("rust_engine") == "ok"
     return {
@@ -55,127 +68,51 @@ def get_system_status() -> Dict[str, Any]:
     }
 
 # =====================================================================
-# PIPELINE STATISTICS
+# PIPELINE
 # =====================================================================
 
 def get_pipeline_stats() -> Dict[str, Any]:
     """Get pipeline statistics (unprocessed, analyzed today, high risks)."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/pipeline/stats",
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logger.error(f"Failed to get pipeline stats: {e}")
-        return {
-            "status": "error",
-            "unprocessed": 0,
-            "analyzed_today": 0,
-            "high_risks": 0,
-            "last_pipeline_run": None,
-            "error": str(e)
-        }
+    stats, error = _request("GET", "/pipeline/stats")
+    if error:
+        return {"status": "error", "error": error}
+    return stats
 
-# =====================================================================
-# ACTIONS
-# =====================================================================
 
 def run_pipeline(limit: int = 100) -> Dict[str, Any]:
     """Trigger pipeline analysis for unprocessed asteroids."""
-    try:
-        response = _session.post(
-            f"{API_BASE_URL}/pipeline/neo/analyze",
-            params={"limit": limit},
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logger.error(f"Pipeline execution failed: {e}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "statistics": {"processed": 0, "failed": 0, "skipped": 0}
-        }
+    result, error = _request("POST", "/pipeline/neo/analyze", timeout=REQUEST_TIMEOUT, params={"limit": limit})
+    if error:
+        return {"status": "error", "error": error}
+    return result
 
 # =====================================================================
 # DATA ACCESS
 # =====================================================================
 
-def get_analyzed_asteroids(
-    limit: int = 200, 
-    sort: str = "risk_score", 
-    order: str = "desc"
-) -> List[Dict[str, Any]]:
-    """Get list of analyzed asteroids."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/pipeline/analysis/asteroids",
-            params={
-                "limit": limit,
-                "sort": sort,
-                "order": order,
-            },
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        # Handle both direct list and wrapped response
-        if isinstance(data, list):
-            return data
-        return data.get("asteroids", [])
-    except requests.RequestException as e:
-        logger.error(f"Failed to get analyzed asteroids: {e}")
-        return []
+def get_analyzed_asteroids(limit: int = 200, sort: str = "risk", order: str = "desc") -> List[Dict[str, Any]]:
+    """Get list of analyzed asteroids. `sort` is one of: risk, energy, date."""
+    params = {"limit": limit, "sort": sort, "order": order}
+    asteroids, _ = _request("GET", "/pipeline/analysis/asteroids", timeout=REQUEST_TIMEOUT, params=params)
+    return asteroids or []
+
 
 def get_close_approaches(limit: int = 10) -> List[Dict[str, Any]]:
     """Get NEOs sorted by miss distance, enriched with Rust Engine risk data."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/pipeline/close-approaches",
-            params={"limit": limit},
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logger.error(f"Failed to get close approaches: {e}")
-        return []
+    approaches, _ = _request("GET", "/pipeline/close-approaches", params={"limit": limit})
+    return approaches or []
 
 
 def get_logs(limit: int = 100) -> List[Dict[str, Any]]:
     """Get recent logs from Python API."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/logs",
-            params={"limit": limit},
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        if isinstance(data, list):
-            return data
-        return data.get("logs", [])
-    except requests.RequestException as e:
-        logger.error(f"Failed to get logs: {e}")
-        return []
+    logs, _ = _request("GET", "/logs", params={"limit": limit})
+    return logs or []
+
 
 def get_asteroid_detail(asteroid_id: str) -> dict:
     """Fetch full asteroid detail (close approaches + orbital data) from NASA via Python API."""
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/nasa/asteroids/{asteroid_id}",
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        logger.error(f"Failed to get asteroid detail for {asteroid_id}: {e}")
-        return {}
+    detail, _ = _request("GET", f"/nasa/asteroids/{asteroid_id}", timeout=REQUEST_TIMEOUT)
+    return detail or {}
 
 
 def get_nasa_asteroids(
@@ -194,15 +131,5 @@ def get_nasa_asteroids(
     if is_hazardous is not None:
         params["is_hazardous"] = str(is_hazardous).lower()
 
-    try:
-        response = _session.get(
-            f"{API_BASE_URL}/nasa/asteroids",
-            params=params,
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("asteroids", [])
-    except requests.RequestException as e:
-        logger.error(f"Failed to get NASA asteroids: {e}")
-        return []
+    data, _ = _request("GET", "/nasa/asteroids", timeout=REQUEST_TIMEOUT, params=params)
+    return (data or {}).get("asteroids", [])
