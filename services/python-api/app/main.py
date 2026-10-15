@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import date, timedelta
 from flask import Flask
@@ -35,7 +36,7 @@ def _seed_asteroids_on_startup(app: Flask) -> None:
             logger.error(f"Startup seed failed: {e}")
 
 
-def create_app():
+def create_app(seed: bool = True):
     app = Flask(__name__)
 
     mongo = MongoDBClient(MONGO_URI, MONGO_DB_NAME)
@@ -47,17 +48,28 @@ def create_app():
 
     register_error_handlers(app)
 
-    seed_thread = threading.Thread(
-        target=_seed_asteroids_on_startup,
-        args=(app,),
-        daemon=True,
-        name="startup-seed",
-    )
-    seed_thread.start()
+    if seed:
+        seed_thread = threading.Thread(
+            target=_seed_asteroids_on_startup,
+            args=(app,),
+            daemon=True,
+            name="startup-seed",
+        )
+        seed_thread.start()
 
     return app
 
 
 if __name__ == "__main__":
-    app = create_app()
-    app.run(host="0.0.0.0", port=5001, debug=DEBUG)
+    # With DEBUG on, Werkzeug's reloader runs this module twice: a watcher
+    # parent, then the child that actually serves requests (the child gets
+    # WERKZEUG_RUN_MAIN=true). Seeding only in the child avoids a duplicate
+    # NASA fetch and a duplicate nasa_feeds entry on every start.
+    # (gunicorn in Docker calls create_app() directly, so it always seeds.)
+    is_reloader_parent = DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
+    app = create_app(seed=not is_reloader_parent)
+
+    # The debug server exposes an interactive debugger: keep it on
+    # localhost only. Without DEBUG, listen on all interfaces as before.
+    host = "127.0.0.1" if DEBUG else "0.0.0.0"
+    app.run(host=host, port=5001, debug=DEBUG)

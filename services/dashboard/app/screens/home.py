@@ -182,6 +182,7 @@ class HomeScreen(Screen):
                 button.label = f"✓ {processed} processed"
                 self.query_one(StatusPanel).refresh_data()
                 self.query_one(TopThreatsPanel).refresh_data()
+                self.query_one(CloseApproachesPanel).refresh_data()
             else:
                 button.label = "✗ Failed"
 

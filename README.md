@@ -69,6 +69,10 @@ Services started:
 ### Local dev (manual)
 
 ```bash
+# Env file (local dev reads the root .env, not infra/env/python.env)
+cp .env.example .env
+#    → set NASA_API_KEY inside .env
+
 # MongoDB
 mongod --dbpath /tmp/mongodb --logpath /tmp/mongodb.log --fork
 
@@ -239,9 +243,11 @@ The cache is intentionally in-process — no Redis dependency for the challenge 
 | `RUST_ENGINE_URL` | Yes | Rust engine base URL |
 | `LOG_DIRECTORY` | No | Log file path (default: `./logs`; Docker Compose overrides this to `/app/storage/logs`) |
 | `REQUEST_TIMEOUT` | No | NASA HTTP timeout in seconds (default: 30) |
-| `DEBUG` | No | Flask debug mode (default: false) |
+| `DEBUG` | No | Flask debug mode with auto-reload, bound to `127.0.0.1` only (default: false) |
 
-Copy `infra/env/python.env.example` → `infra/env/python.env` and fill in values before starting.
+Where they come from:
+- **Docker** — copy `infra/env/python.env.example` → `infra/env/python.env`.
+- **Local dev** — copy `.env.example` → `.env` in the project root.
 
 **Rust Engine**
 

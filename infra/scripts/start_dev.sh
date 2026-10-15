@@ -62,6 +62,29 @@ check_mongodb() {
     fi
 }
 
+# A venv can exist and still be dead (e.g. after a system Python upgrade
+# its interpreter or site-packages no longer match), so checking for the
+# folder isn't enough: actually run it and import the service's main dependency.
+check_venv() {
+    local service=$1
+    local module=$2
+    local requirements=$3
+
+    if ! "$SERVICES_DIR/$service/venv/bin/python" -c "import $module" &> /dev/null; then
+        echo -e "${RED}❌ $service venv missing or broken (cannot import $module). Recreate it:${NC}"
+        echo -e "${YELLOW}  cd services/$service && rm -rf venv && python3 -m venv venv && venv/bin/pip install -r $requirements${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ $service venv OK${NC}"
+}
+
+print_dashboard_manual_start() {
+    echo -e "${YELLOW}Open a new terminal and run:${NC}"
+    echo -e "${GREEN}cd $SERVICES_DIR/dashboard${NC}"
+    echo -e "${GREEN}source venv/bin/activate${NC}"
+    echo -e "${GREEN}python -m app.main${NC}"
+}
+
 # Function to start Rust Engine
 start_rust_engine() {
     echo -e "${BLUE}🦀 Starting Rust Engine...${NC}"
@@ -100,13 +123,6 @@ start_python_api() {
 
     cd "$SERVICES_DIR/python-api"
 
-    # Check if Python venv exists
-    if [ ! -d "venv" ]; then
-        echo -e "${RED}❌ Virtual environment not found. Run first:${NC}"
-        echo -e "${YELLOW}  cd services/python-api && python -m venv venv && source venv/bin/activate && pip install -r requirements-dev.txt${NC}"
-        exit 1
-    fi
-
     echo -e "${YELLOW}Starting Python API...${NC}"
     source venv/bin/activate
     setsid python -m app.main &
@@ -123,13 +139,6 @@ open_dashboard() {
     echo -e "${BLUE}📊 Opening Dashboard...${NC}"
 
     cd "$SERVICES_DIR/dashboard"
-
-    # Check if venv exists
-    if [ ! -d "venv" ]; then
-        echo -e "${RED}❌ Dashboard venv not found. Run first:${NC}"
-        echo -e "${YELLOW}  cd services/dashboard && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt${NC}"
-        exit 1
-    fi
 
     # Determine command to open new terminal
     if command -v gnome-terminal &> /dev/null; then
@@ -149,10 +158,7 @@ open_dashboard() {
         start cmd /k "cd /d $SERVICES_DIR/dashboard && venv\Scripts\activate && python -m app.main && pause"
     else
         echo -e "${YELLOW}💡 Terminal not detected automatically.${NC}"
-        echo -e "${YELLOW}Open a new terminal and run:${NC}"
-        echo -e "${GREEN}cd $SERVICES_DIR/dashboard${NC}"
-        echo -e "${GREEN}source venv/bin/activate${NC}"
-        echo -e "${GREEN}python -m app.main${NC}"
+        print_dashboard_manual_start
         echo -e "${YELLOW}Press Enter to continue...${NC}"
         read
     fi
@@ -207,6 +213,9 @@ echo -e "${GREEN}✅ Rust/Cargo found${NC}"
 # Check MongoDB
 check_mongodb
 
+check_venv python-api flask requirements-dev.txt
+check_venv dashboard textual requirements.txt
+
 echo -e "${GREEN}✅ All dependencies OK${NC}\n"
 
 # Start services
@@ -220,10 +229,15 @@ echo -e "${GREEN}• Rust Engine: localhost:8080${NC}"
 echo -e "${GREEN}• Python API:  localhost:5001${NC}"
 echo -e "${BLUE}=====================================${NC}"
 
-# Open dashboard
-open_dashboard
+# Open dashboard. Called inside `if` on purpose: under `set -e` a failing
+# terminal (crash, no display) would otherwise exit the script, and the
+# EXIT trap would then stop the API and engine that are running fine.
+if ! open_dashboard; then
+    echo -e "${YELLOW}⚠️  Could not open a terminal for the dashboard — services are still running.${NC}"
+    print_dashboard_manual_start
+fi
 
-echo -e "\n${GREEN}Dashboard opened. Press Ctrl+C in this launcher terminal to terminate services...${NC}"
+echo -e "\n${GREEN}Press Ctrl+C in this launcher terminal to terminate services...${NC}"
 
 echo -e "${YELLOW}Waiting for Ctrl+C in this terminal to stop Rust and Python services...${NC}"
 
