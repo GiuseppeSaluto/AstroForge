@@ -9,8 +9,16 @@ pub enum RiskLevel {
     Critical,
 }
 
+/// Bump whenever the scoring formula changes, so stored analyses show which
+/// formula produced them (see README "Changing the risk model").
+///   1 = energy only (until late June 2026, stored without this field)
+///   2 = proximity 1.5M/(d+1M) floored at 0.2 (June–Oct 2026, also unstamped)
+///   3 = log proximity over the NeoWS range, floored at 0.5
+pub const RISK_MODEL_VERSION: u32 = 3;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskResult {
+    pub model_version: u32,
     pub asteroid_id: String,
     pub asteroid_name: String,
     pub impact_energy_joules: f64,

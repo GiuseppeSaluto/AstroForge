@@ -5,6 +5,12 @@ use std::f64::consts::PI;
 // type estimate first; reintroduce an enum only when that input exists.
 const SILICACEOUS_DENSITY_KG_M3: f64 = 2700.0;
 
+const LUNAR_DISTANCE_KM: f64 = 384_400.0;
+/// NeoWS feed results reach ~0.5 AU ≈ 195 lunar distances (checked against
+/// real data: 207 stored NEOs span 3.7–194 LD, median 116 LD).
+const NEOWS_MAX_DISTANCE_LD: f64 = 195.0;
+const MIN_PROXIMITY_FACTOR: f64 = 0.5;
+
 pub struct ImpactPhysics;
 
 impl ImpactPhysics {
@@ -47,13 +53,21 @@ impl ImpactPhysics {
         normalized.clamp(0.0, 100.0)
     }
 
-    /// Reduces the score for asteroids with large miss distances.
+    /// Scales the score down for distant passes, on a log scale over the
+    /// distance range NeoWS actually returns: 1 LD → ×1.0, ~195 LD (0.5 AU,
+    /// the far edge of the feed) → ×0.5. Log scale because going from 1 to
+    /// 2 LD matters far more than going from 100 to 101 LD.
     ///
-    /// NASA NeoWS tracks objects within ~7,500,000 km (0.05 AU).
-    /// Objects passing within 500,000 km receive the full score.
-    /// At 7,500,000 km the factor bottoms out at 0.2.
+    /// The floor is 0.5, not lower, on purpose: distance modulates the
+    /// score, it doesn't erase it. (The previous curve hit its 0.2 floor
+    /// at ~17 LD, so 97% of real NeoWS passes got the same factor.)
     pub fn apply_proximity_factor(score: f64, miss_distance_km: f64) -> f64 {
-        let factor = (1_500_000.0 / (miss_distance_km + 1_000_000.0)).clamp(0.2, 1.0);
+        // `.max(1.0)`: log10 of anything below 1 is negative (and log10(0)
+        // is -inf in f64, no panic), so passes inside 1 LD just get ×1.0.
+        let distance_ld = (miss_distance_km / LUNAR_DISTANCE_KM).max(1.0);
+        // 0.0 at 1 LD, 1.0 at the NeoWS far edge, >1.0 beyond it.
+        let farness = distance_ld.log10() / NEOWS_MAX_DISTANCE_LD.log10();
+        let factor = (1.0 - (1.0 - MIN_PROXIMITY_FACTOR) * farness).clamp(MIN_PROXIMITY_FACTOR, 1.0);
         (score * factor).clamp(0.0, 100.0)
     }
 
@@ -144,7 +158,7 @@ mod tests {
 
     #[test]
     fn very_close_pass_preserves_full_score() {
-        // Within 500,000 km factor is clamped to 1.0
+        // Inside 1 lunar distance (384,400 km) the factor is clamped to 1.0
         let score = 70.0;
         let result = ImpactPhysics::apply_proximity_factor(score, 200_000.0);
         assert_eq!(result, score);
@@ -152,13 +166,44 @@ mod tests {
 
     #[test]
     fn proximity_output_stays_in_range() {
-        for dist in [0.0, 500_000.0, 3_000_000.0, 7_500_000.0] {
+        for dist in [0.0, 500_000.0, 3_000_000.0, 75_000_000.0, 1e12] {
             let result = ImpactPhysics::apply_proximity_factor(80.0, dist);
             assert!(
                 (0.0..=100.0).contains(&result),
                 "Out of range at dist={dist}: {result}"
             );
         }
+    }
+
+    #[test]
+    fn far_edge_of_neows_range_halves_the_score() {
+        // 195 LD ≈ 75,000,000 km is the far edge of the feed → ×0.5,
+        // and anything beyond it stays at the 0.5 floor.
+        let at_edge = ImpactPhysics::apply_proximity_factor(80.0, 195.0 * LUNAR_DISTANCE_KM);
+        let beyond = ImpactPhysics::apply_proximity_factor(80.0, 1e12);
+        assert!((at_edge - 40.0).abs() < 1e-9, "got {at_edge}");
+        assert!((beyond - 40.0).abs() < 1e-9, "got {beyond}");
+    }
+
+    #[test]
+    fn typical_neows_distances_are_not_flattened_to_one_value() {
+        // Regression: the old curve gave ×0.2 to every pass beyond ~17 LD,
+        // i.e. 97% of real data. Typical passes (30 vs 150 LD) must now differ.
+        let at_30_ld = ImpactPhysics::apply_proximity_factor(80.0, 30.0 * LUNAR_DISTANCE_KM);
+        let at_150_ld = ImpactPhysics::apply_proximity_factor(80.0, 150.0 * LUNAR_DISTANCE_KM);
+        assert!(at_30_ld - at_150_ld > 5.0, "30 LD={at_30_ld:.1}, 150 LD={at_150_ld:.1}");
+    }
+
+    #[test]
+    fn large_close_hazardous_neo_scores_high() {
+        // Real record from the DB: 152637 (1997 NC1), ~1.15 km, 8.89 km/s,
+        // 2,565,838 km (~6.7 LD), flagged hazardous. Under the old curve it
+        // scored 40 (Medium) — a km-scale PHA passing at 7 LD should be High.
+        let ke = kinetic_energy_for(1.1469, 8.89);
+        let score = ImpactPhysics::risk_score_from_energy(ke);
+        let score = ImpactPhysics::apply_proximity_factor(score, 2_565_838.0);
+        let score = ImpactPhysics::apply_hazardous_bonus(score, true);
+        assert!((50.0..75.0).contains(&score), "1997 NC1 should be High, got {score:.1}");
     }
 
     // ── apply_hazardous_bonus ─────────────────────────────────────────────────

@@ -229,6 +229,38 @@ The cache is intentionally in-process — no Redis dependency for the challenge 
 
 ---
 
+## Risk Score
+
+A **threat index** from 0 to 100, not an impact probability (that would need
+NASA's Sentry impact-monitoring data). It answers "how bad would this one be,
+and how close does it pass?":
+
+1. **Energy** — kinetic energy from diameter (silicaceous density, 2700 kg/m³)
+   and velocity, mapped on a log scale: ~10¹² J → 0, ~10²³ J → 100.
+2. **Proximity** — ×1.0 within 1 lunar distance (LD), sliding on a log scale to
+   ×0.5 at ~195 LD (0.5 AU, the far edge of what NeoWS returns).
+3. **Hazard flag** — +10 if NASA marks it potentially hazardous.
+
+Levels: Low < 25 ≤ Medium < 50 ≤ High < 75 ≤ Critical.
+
+### Changing the risk model
+
+Every analysis stores the `model_version` that produced it (`RISK_MODEL_VERSION`
+in `services/rust-engine/src/domain/risk.rs`). Analyses are fully derived from
+`asteroids_raw`, so after a formula change they can simply be recomputed:
+
+1. Bump `RISK_MODEL_VERSION` and restart the engine (Docker: `docker compose up --build rust-engine`).
+2. Delete the old analyses:
+   ```bash
+   mongosh astroforge_db --eval 'db.asteroid_analyses.deleteMany({})'
+   # Docker: docker exec astroforge-mongodb mongosh astroforge_db --eval 'db.asteroid_analyses.deleteMany({})'
+   ```
+3. Run the pipeline (dashboard → Run Pipeline). It processes up to 1000 asteroids per run.
+
+To check for stale analyses: `db.asteroid_analyses.countDocuments({"risk_data.model_version": {$ne: 3}})`.
+
+---
+
 ## Environment Variables
 
 **Python API**

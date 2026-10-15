@@ -38,6 +38,7 @@ in `errors` while the valid ones are scored in `results`.
 {
   "results": [
     {
+      "model_version": 3,
       "asteroid_id": "3542519",
       "asteroid_name": "(2010 PK9)",
       "risk_level": "Low",
@@ -55,5 +56,7 @@ in `errors` while the valid ones are scored in `results`.
   ]
 }
 ```
+
+`model_version` identifies the scoring formula (see README → Risk Score).
 
 Returns `400 Bad Request` for an empty array or a batch larger than 500.

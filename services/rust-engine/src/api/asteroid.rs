@@ -1,6 +1,6 @@
 use axum::{extract::Json, http::StatusCode, response::IntoResponse};
 use crate::domain::asteroid::Asteroid;
-use crate::domain::risk::RiskResult;
+use crate::domain::risk::{RiskResult, RISK_MODEL_VERSION};
 use crate::dto::asteroid_dto::AsteroidDTO;
 use crate::logic::impact_energy::ImpactPhysics;
 use serde::Serialize;
@@ -32,6 +32,7 @@ fn compute_risk(asteroid: &Asteroid) -> RiskResult {
     let risk_level = RiskResult::compute_risk_level(risk_score_0_to_100);
 
     RiskResult {
+        model_version: RISK_MODEL_VERSION,
         asteroid_id: asteroid.id.clone(),
         asteroid_name: asteroid.name.clone(),
         impact_energy_joules: energy_joules,
@@ -194,6 +195,7 @@ mod integration_tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(json["results"].as_array().unwrap().len(), 1);
+        assert_eq!(json["results"][0]["model_version"], crate::domain::risk::RISK_MODEL_VERSION);
         assert_eq!(json["errors"].as_array().unwrap().len(), 1);
         assert_eq!(json["errors"][0]["id"], "bad-one");
     }
